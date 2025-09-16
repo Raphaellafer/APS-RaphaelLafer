@@ -47,6 +47,8 @@ Number      = Digit { Digit } ;
 Letter      = "a" | ... | "z" | "A" | ... | "Z" ;
 Digit       = "0" | ... | "9" ;
 
+```
+
 ## Unidades de medida
 
 -horario → representa a hora do dia, variando de 0 a 23 (formato 24 horas).
@@ -85,6 +87,7 @@ Exemplo: ler(fluxo) -> f; pode retornar 15 (15 carros na via).
 
 ##  Exemplo de um programa
 
+```
 ler(horario) -> h;
 
 if (h >= 6 && h < 20) {
@@ -104,5 +107,6 @@ if (h >= 6 && h < 20) {
     mudar(vermelho);
     esperar(14);
 }
+```
 
 O código acima le o horario em que o dia se encontra, se está entre as 6h00 e 19h59, o semaforo vermelho dura mais (18 segundos), se o horário for entre 20h00 e 5h59, o semaforo vermelho dura menos (14 segundos) 
