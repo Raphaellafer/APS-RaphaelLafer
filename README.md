@@ -35,7 +35,11 @@ TimerCmd    = "esperar" "(" Expression ")" ;
 Expression  = Term { ("+" | "-" | "*" | "/") Term } ;
 Term        = Number | Identifier | "(" Expression ")" ;
 
-Condition   = Expression RelOp Expression ;
+Condition   = LogicOr ;
+LogicOr     = LogicAnd { "||" LogicAnd } ;
+LogicAnd    = RelCondition { "&&" RelCondition } ;
+RelCondition = Expression RelOp Expression ;
+
 RelOp       = "==" | "!=" | ">" | "<" | ">=" | "<=" ;
 
 Color       = "verde" | "amarelo" | "vermelho" ;
