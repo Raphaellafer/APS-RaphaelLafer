@@ -6,6 +6,7 @@
 extern int yyparse(void);
 extern int yylineno;
 extern FILE *yyin;
+extern void yyrestart(FILE *);
 
 enum Cor { VERDE_C, AMARELO_C, VERMELHO_C };
 extern enum Cor cor_atual;
@@ -21,7 +22,7 @@ void mostrar_ajuda() {
     printf("fim - encerra\n");
     printf("executar - programa multi-linha\n");
     printf("ajuda - mostra ajuda\n");
-    printf("=============================\n");
+
 }
 
 void mostrar_cor_atual() {
@@ -148,8 +149,16 @@ int main() {
         if (temp) {
             yyin = temp;
             yylineno = 1;
-            yyparse();
+            
+            int resultado = yyparse();
+
+            yyrestart(NULL);
+            
             fclose(temp);
+            
+            if (resultado != 0) {
+                printf("Erro no comando. Tente novamente.\n");
+            }
         }
     }
     

@@ -65,10 +65,10 @@ ID          {LETRA}({LETRA}|{DIGITO}|_)*
 "}"             return RBRACE;
 ";"             return SEMI;
 
-[ \t]+          /* ignore */
-\n              /* ignore */
+[ \t]+          /* ignore espaços e tabs */
+\n              { return NEWLINE; }
 
-"//"[^\n]*      /* ignore */
+"//"[^\n]*      /* ignore comentários */
 
 {DIGITO}+       { yylval.num = atoi(yytext); return NUMBER; }
 {ID}            {
@@ -77,6 +77,9 @@ ID          {LETRA}({LETRA}|{DIGITO}|_)*
     return IDENT;
 }
 
-.               { return INVALID; }
+.               { 
+    fprintf(stderr, "ERRO LÉXICO (linha %d): Caractere inválido '%s'\n", yylineno, yytext); 
+    return INVALID; 
+}
 
 %%

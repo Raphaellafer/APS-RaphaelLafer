@@ -64,6 +64,9 @@ static void executar_comando(const char *cmd, const char *param, int valor) {
         else if (strcmp(param, "amarelo") == 0) cor_atual = AMARELO_C;
         else cor_atual = VERMELHO_C;
     }
+    else if (strcmp(cmd, "piscar") == 0) {
+        printf("  -> Piscando %s por %d vezes\n", param, valor);
+    }
     else if (strcmp(cmd, "esperar") == 0) {
         printf("  -> Esperando %d segundos...\n", valor);
     }
@@ -107,6 +110,7 @@ static void executar_comando(const char *cmd, const char *param, int valor) {
 
 program:
     statements { YYACCEPT; }
+    | error { yyclearin; yyerrok; YYABORT; }
     ;
 
 statements:
@@ -120,7 +124,7 @@ statement:
     | if_stmt
     | while_stmt
     | block
-    | SEMI
+    | SEMI { /* linha vazia */ }
     ;
 
 assignment:
@@ -146,6 +150,10 @@ block:
 command:
     MUDAR LPAREN color RPAREN { 
         executar_comando("mudar", $3, 0); 
+        free($3); 
+    }
+    | PISCAR LPAREN color COMMA expression RPAREN { 
+        executar_comando("piscar", $3, $5); 
         free($3); 
     }
     | LER LPAREN sensor RPAREN ARROW IDENT { 
@@ -198,4 +206,5 @@ expression:
 %%
 
 void yyerror(const char *s) {
+    fprintf(stderr, "ERRO SINTÁTICO (linha %d): %s\n", yylineno, s);
 }

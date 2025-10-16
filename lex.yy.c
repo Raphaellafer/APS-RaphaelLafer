@@ -1011,18 +1011,18 @@ return SEMI;
 case 35:
 YY_RULE_SETUP
 #line 68 "lexer.l"
-/* ignore */
+/* ignore espaços e tabs */
 	YY_BREAK
 case 36:
 /* rule 36 can match eol */
 YY_RULE_SETUP
 #line 69 "lexer.l"
-/* ignore */
+{ return NEWLINE; }
 	YY_BREAK
 case 37:
 YY_RULE_SETUP
 #line 71 "lexer.l"
-/* ignore */
+/* ignore comentários */
 	YY_BREAK
 case 38:
 YY_RULE_SETUP
@@ -1041,14 +1041,17 @@ YY_RULE_SETUP
 case 40:
 YY_RULE_SETUP
 #line 80 "lexer.l"
-{ return INVALID; }
+{ 
+    fprintf(stderr, "ERRO LÉXICO (linha %d): Caractere inválido '%s'\n", yylineno, yytext); 
+    return INVALID; 
+}
 	YY_BREAK
 case 41:
 YY_RULE_SETUP
-#line 82 "lexer.l"
+#line 85 "lexer.l"
 ECHO;
 	YY_BREAK
-#line 1052 "lex.yy.c"
+#line 1055 "lex.yy.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -2065,5 +2068,5 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 82 "lexer.l"
+#line 85 "lexer.l"
 
