@@ -1,107 +1,106 @@
-#  Semaforos
+# Semaforos - Linguagem de Programação para Controle de Semáforos
 
-##  Objetivo
-A linguagem **Semaforos** foi criada para simular e programar o comportamento de um semáforo virtual em uma Máquina de Estados.  
-O propósito é oferecer uma forma de **programar sinais de trânsito** , utilizando conceitos de linguagens de programação como **variáveis, condicionais e laços**.  
+## Objetivo
+A linguagem Semaforos foi criada para simular e programar o comportamento de um semáforo virtual em uma Máquina de Estados. O propósito é oferecer uma forma de programar sinais de trânsito, utilizando conceitos de linguagens de programação como variáveis, condicionais e laços.
 
-Enquanto outras linguagens controlam robôs, microondas ou carros, o **Semaforos** foca em um problema urbano clássico:  
-como organizar o tempo de verde, amarelo e vermelho, respeitando o fluxo de carros e dependendo do horario do dia.
+Enquanto outras linguagens controlam robôs, microondas ou carros, o Semaforos foca em um problema urbano clássico: como organizar o tempo de verde, amarelo e vermelho, respeitando o fluxo de carros e dependendo do horário do dia.
 
----
+## Especificação da Linguagem
 
-##  Especificação em EBNF
+### EBNF
+```
+Program = { Statement } ;
 
-```ebnf
-Program     = { Statement } ;
+Statement = Assignment | IfStmt | WhileStmt | Command ;
 
-Statement   = Assignment | IfStmt | WhileStmt | Command ;
+Assignment = Identifier "=" Expression ";" ;
 
-Assignment  = Identifier "=" Expression ";" ;
+IfStmt = "if" "(" Condition ")" "{" { Statement } "}"
+[ "else" "{" { Statement } "}" ] ;
 
-IfStmt      = "if" "(" Condition ")" "{" { Statement } "}" 
-            [ "else" "{" { Statement } "}" ] ;
+WhileStmt = "while" "(" Condition ")" "{" { Statement } "}" ;
 
-WhileStmt   = "while" "(" Condition ")" "{" { Statement } "}" ;
+Command = LightCmd ";" | SensorCmd ";" | TimerCmd ";" ;
 
-Command     = LightCmd ";" | SensorCmd ";" | TimerCmd ";" ;
+LightCmd = "mudar" "(" Color ")"
+| "piscar" "(" Color "," Expression ")" ;
 
-LightCmd    = "mudar" "(" Color ")"               
-            | "piscar" "(" Color "," Expression ")" ;
+SensorCmd = "ler" "(" Sensor ")" "->" Identifier ;
 
-SensorCmd   = "ler" "(" Sensor ")" "->" Identifier ;
+TimerCmd = "esperar" "(" Expression ")" ;
 
-TimerCmd    = "esperar" "(" Expression ")" ;
+Expression = Term { ("+" | "-" | "*" | "/") Term } ;
+Term = Number | Identifier | "(" Expression ")" ;
 
-Expression  = Term { ("+" | "-" | "*" | "/") Term } ;
-Term        = Number | Identifier | "(" Expression ")" ;
-
-Condition   = LogicOr ;
-LogicOr     = LogicAnd { "||" LogicAnd } ;
-LogicAnd    = RelCondition { "&&" RelCondition } ;
+Condition = LogicOr ;
+LogicOr = LogicAnd { "||" LogicAnd } ;
+LogicAnd = RelCondition { "&&" RelCondition } ;
 RelCondition = Expression RelOp Expression ;
 
-RelOp       = "==" | "!=" | ">" | "<" | ">=" | "<=" ;
+RelOp = "==" | "!=" | ">" | "<" | ">=" | "<=" ;
 
-Color       = "verde" | "amarelo" | "vermelho" ;
-Sensor      = "horario" | "duracao" | "fluxo" ;
+Color = "verde" | "amarelo" | "vermelho" ;
+Sensor = "horario" | "duracao" | "fluxo" ;
 
-Identifier  = Letter { Letter | Digit | "_" } ;
-Number      = Digit { Digit } ;
-
-Letter      = "a" | ... | "z" | "A" | ... | "Z" ;
-Digit       = "0" | ... | "9" ;
-
+Identifier = Letter { Letter | Digit | "_" } ;
+Number = Digit { Digit } ;
 ```
 
-## Unidades de medida
 
--horario → representa a hora do dia, variando de 0 a 23 (formato 24 horas).
-Exemplo: 0 = meia-noite, 12 = meio-dia, 23 = 23h. Esse valor é atualizado automaticamente pela VM, simulando um relógio.
+### Sensores e Unidades de Medida
 
--duracao → representa o tempo em segundos que o semáforo permanece em uma cor específica. Quando a cor muda, esse valor reinicia em 0.
+- **horario** → representa a hora do dia (0-23)
+- **duracao** → tempo em segundos na cor atual
+- **fluxo** → quantidade de carros detectados
+- **esperar(x)** → pausa por x segundos
 
--fluxo → representa a quantidade de carros detectados em determinada via. É sempre um número inteiro.
+### Comandos Disponíveis
 
--esperar(x) → comando que faz o programa pausar por x segundos antes de continuar a execução.
-
-
-## Sensores disponíveis
-
-horario → retorna a hora do dia (inteiro de 0 a 23).
-
-0 = meia-noite (00h)
-
-6 = 6h da manhã
-
-12 = meio-dia
-
-20 = 20h (8 da noite)
-
-23 = 23h (11 da noite)
-
-Após 23, o valor volta para 0.
-
-duracao → tempo em segundos que o semáforo está na cor atual.
-
-Exemplo: se o sinal ficou verde por 12 segundos, ler(duracao) retorna 12.
-
-fluxo → quantidade de carros detectados no cruzamento.
-
-Exemplo: ler(fluxo) -> f; pode retornar 15 (15 carros na via).
-
-##  Exemplo de um programa
-
+#### Controle de Semáforo
 ```
+mudar(verde);       // Muda para verde
+mudar(amarelo);     // Muda para amarelo  
+mudar(vermelho);    // Muda para vermelho
+piscar(verde, 5);   // Pisca verde 5 vezes
+```
+Sensores
+```
+ler(horario) -> h;  // Lê hora atual para variável h
+ler(fluxo) -> f;    // Lê fluxo de carros para f
+ler(duracao) -> d;  // Lê duração atual para d
+```
+Temporização
+```
+esperar(10);        // Espera 10 segundos
+```
+Estruturas de Controle
+```
+if (condição) {
+    // comandos
+} else {
+    // comandos
+}
+
+while (condição) {
+    // comandos
+}
+```
+Atribuição
+```
+tempo = 30;
+contador = contador + 1;
+Exemplo de Programa
+cpp
 ler(horario) -> h;
 
 if (h >= 6 && h < 20) {
     // Dia: das 06h até 19h59
     mudar(verde);
-    esperar(25);   // 25 segundos
+    esperar(25);
     mudar(amarelo);
-    esperar(4);    // 4 segundos
+    esperar(4);
     mudar(vermelho);
-    esperar(18);   // 18 segundos
+    esperar(18);
 } else {
     // Noite: das 20h até 05h59
     mudar(verde);
@@ -112,5 +111,35 @@ if (h >= 6 && h < 20) {
     esperar(14);
 }
 ```
+Implementação
+Arquivos do Projeto
+parser.y - Analisador sintático Bison
 
-O código acima le o horario em que o dia se encontra, se está entre as 6h00 e 19h59, o semaforo vermelho dura mais (18 segundos), se o horário for entre 20h00 e 5h59, o semaforo vermelho dura menos (14 segundos) 
+lexer.l - Analisador léxico Flex
+
+main.c - Programa principal e modo interativo
+
+Makefile - Sistema de compilação
+
+Compilação
+```
+make clean
+make
+./semaforos
+```
+Modos de Uso
+Modo Interativo
+```
+[Semaforo: VERDE] > mudar(amarelo);
+[Semaforo: AMARELO] > esperar(5);
+```
+Modo Programa Completo
+```
+[Semaforo: VERDE] > executar
+# Digite o programa linha por linha
+# Termine com 'FIM'
+```
+Carregar Arquivo
+```
+[Semaforo: VERDE] > carregar programa.sema
+```
