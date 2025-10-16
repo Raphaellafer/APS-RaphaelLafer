@@ -1,23 +1,23 @@
-BISON = bison
-FLEX = flex
 CC = gcc
+CFLAGS = -Wall -Wextra -g
+FLEX = flex
+BISON = bison
 
-PARSER = parser
-LEXER = lexer
-MAIN = main
+all: semaforos
 
-EXEC = semaforos
+semaforos: parser.tab.o lex.yy.o main.o
+	$(CC) -o $@ $^ -lfl
 
-all: $(EXEC)
+parser.tab.c parser.tab.h: parser.y
+	$(BISON) -d parser.y
 
-$(EXEC): $(PARSER).tab.c lex.yy.c $(MAIN).c
-	$(CC) -o $(EXEC) $(MAIN).c $(PARSER).tab.c lex.yy.c -lfl
+lex.yy.c: lexer.l parser.tab.h
+	$(FLEX) lexer.l
 
-$(PARSER).tab.c $(PARSER).tab.h: $(PARSER).y
-	$(BISON) -d $(PARSER).y
-
-lex.yy.c: $(LEXER).l $(PARSER).tab.h
-	$(FLEX) $(LEXER).l
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(EXEC) $(PARSER).tab.c $(PARSER).tab.h lex.yy.c
+	rm -f semaforos *.o parser.tab.c parser.tab.h lex.yy.c
+
+.PHONY: all clean

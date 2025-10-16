@@ -1,0 +1,16 @@
+ler(horario) -> h;
+if (h >= 6 && h < 20) {
+    mudar(verde);
+    esperar(25);
+    mudar(amarelo);
+    esperar(4);
+    mudar(vermelho);
+    esperar(18);
+} else {
+    mudar(verde);
+    esperar(25);
+    mudar(amarelo);
+    esperar(4);
+    mudar(vermelho);
+    esperar(14);
+}

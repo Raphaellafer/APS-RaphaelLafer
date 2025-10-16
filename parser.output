@@ -1,0 +1,1202 @@
+Terminals unused in grammar
+
+    PISCAR
+    COMMA
+    FIM
+    NEWLINE
+    INVALID
+
+
+State 47 conflicts: 2 shift/reduce
+
+
+Grammar
+
+    0 $accept: program $end
+
+    1 program: statements
+
+    2 statements: statement
+    3           | statements statement
+
+    4 statement: assignment SEMI
+    5          | command SEMI
+    6          | if_stmt
+    7          | while_stmt
+    8          | SEMI
+
+    9 assignment: IDENT ASSIGN expression
+
+   10 if_stmt: IF LPAREN condition RPAREN LBRACE statements RBRACE
+   11        | IF LPAREN condition RPAREN LBRACE statements RBRACE ELSE LBRACE statements RBRACE
+
+   12 while_stmt: WHILE LPAREN condition RPAREN LBRACE statements RBRACE
+
+   13 command: MUDAR LPAREN color RPAREN
+   14        | LER LPAREN sensor RPAREN ARROW IDENT
+   15        | ESPERAR LPAREN expression RPAREN
+
+   16 color: VERDE
+   17      | AMARELO
+   18      | VERMELHO
+
+   19 sensor: HORARIO
+   20       | DURACAO
+   21       | FLUXO
+
+   22 condition: expression LT expression
+   23          | expression GT expression
+   24          | expression LTE expression
+   25          | expression GTE expression
+   26          | expression EQ expression
+   27          | expression NEQ expression
+   28          | condition AND condition
+   29          | condition OR condition
+   30          | NOT condition
+   31          | LPAREN condition RPAREN
+
+   32 expression: NUMBER
+   33           | IDENT
+   34           | expression PLUS expression
+   35           | expression MINUS expression
+   36           | expression STAR expression
+   37           | expression SLASH expression
+   38           | MINUS expression
+   39           | LPAREN expression RPAREN
+
+
+Terminals, with rules where they appear
+
+    $end (0) 0
+    error (256)
+    IF (258) 10 11
+    ELSE (259) 11
+    WHILE (260) 12
+    MUDAR (261) 13
+    PISCAR (262)
+    LER (263) 14
+    ESPERAR (264) 15
+    VERDE <str> (265) 16
+    AMARELO <str> (266) 17
+    VERMELHO <str> (267) 18
+    HORARIO <str> (268) 19
+    DURACAO <str> (269) 20
+    FLUXO <str> (270) 21
+    LPAREN (271) 10 11 12 13 14 15 31 39
+    RPAREN (272) 10 11 12 13 14 15 31 39
+    LBRACE (273) 10 11 12
+    RBRACE (274) 10 11 12
+    COMMA (275)
+    ASSIGN (276) 9
+    SEMI (277) 4 5 8
+    PLUS (278) 34
+    MINUS (279) 35 38
+    STAR (280) 36
+    SLASH (281) 37
+    EQ (282) 26
+    NEQ (283) 27
+    GT (284) 23
+    LT (285) 22
+    GTE (286) 25
+    LTE (287) 24
+    AND (288) 28
+    OR (289) 29
+    NOT (290) 30
+    ARROW (291) 14
+    NUMBER <num> (292) 32
+    IDENT <str> (293) 9 14 33
+    FIM (294)
+    NEWLINE (295)
+    INVALID (296)
+    UMINUS (297)
+
+
+Nonterminals, with rules where they appear
+
+    $accept (43)
+        on left: 0
+    program <num> (44)
+        on left: 1
+        on right: 0
+    statements (45)
+        on left: 2 3
+        on right: 1 3 10 11 12
+    statement (46)
+        on left: 4 5 6 7 8
+        on right: 2 3
+    assignment (47)
+        on left: 9
+        on right: 4
+    if_stmt (48)
+        on left: 10 11
+        on right: 6
+    while_stmt (49)
+        on left: 12
+        on right: 7
+    command (50)
+        on left: 13 14 15
+        on right: 5
+    color <str> (51)
+        on left: 16 17 18
+        on right: 13
+    sensor <str> (52)
+        on left: 19 20 21
+        on right: 14
+    condition <num> (53)
+        on left: 22 23 24 25 26 27 28 29 30 31
+        on right: 10 11 12 28 29 30 31
+    expression <num> (54)
+        on left: 32 33 34 35 36 37 38 39
+        on right: 9 15 22 23 24 25 26 27 34 35 36 37 38 39
+
+
+State 0
+
+    0 $accept: • program $end
+
+    IF       shift, and go to state 1
+    WHILE    shift, and go to state 2
+    MUDAR    shift, and go to state 3
+    LER      shift, and go to state 4
+    ESPERAR  shift, and go to state 5
+    SEMI     shift, and go to state 6
+    IDENT    shift, and go to state 7
+
+    program     go to state 8
+    statements  go to state 9
+    statement   go to state 10
+    assignment  go to state 11
+    if_stmt     go to state 12
+    while_stmt  go to state 13
+    command     go to state 14
+
+
+State 1
+
+   10 if_stmt: IF • LPAREN condition RPAREN LBRACE statements RBRACE
+   11        | IF • LPAREN condition RPAREN LBRACE statements RBRACE ELSE LBRACE statements RBRACE
+
+    LPAREN  shift, and go to state 15
+
+
+State 2
+
+   12 while_stmt: WHILE • LPAREN condition RPAREN LBRACE statements RBRACE
+
+    LPAREN  shift, and go to state 16
+
+
+State 3
+
+   13 command: MUDAR • LPAREN color RPAREN
+
+    LPAREN  shift, and go to state 17
+
+
+State 4
+
+   14 command: LER • LPAREN sensor RPAREN ARROW IDENT
+
+    LPAREN  shift, and go to state 18
+
+
+State 5
+
+   15 command: ESPERAR • LPAREN expression RPAREN
+
+    LPAREN  shift, and go to state 19
+
+
+State 6
+
+    8 statement: SEMI •
+
+    $default  reduce using rule 8 (statement)
+
+
+State 7
+
+    9 assignment: IDENT • ASSIGN expression
+
+    ASSIGN  shift, and go to state 20
+
+
+State 8
+
+    0 $accept: program • $end
+
+    $end  shift, and go to state 21
+
+
+State 9
+
+    1 program: statements •
+    3 statements: statements • statement
+
+    IF       shift, and go to state 1
+    WHILE    shift, and go to state 2
+    MUDAR    shift, and go to state 3
+    LER      shift, and go to state 4
+    ESPERAR  shift, and go to state 5
+    SEMI     shift, and go to state 6
+    IDENT    shift, and go to state 7
+
+    $default  reduce using rule 1 (program)
+
+    statement   go to state 22
+    assignment  go to state 11
+    if_stmt     go to state 12
+    while_stmt  go to state 13
+    command     go to state 14
+
+
+State 10
+
+    2 statements: statement •
+
+    $default  reduce using rule 2 (statements)
+
+
+State 11
+
+    4 statement: assignment • SEMI
+
+    SEMI  shift, and go to state 23
+
+
+State 12
+
+    6 statement: if_stmt •
+
+    $default  reduce using rule 6 (statement)
+
+
+State 13
+
+    7 statement: while_stmt •
+
+    $default  reduce using rule 7 (statement)
+
+
+State 14
+
+    5 statement: command • SEMI
+
+    SEMI  shift, and go to state 24
+
+
+State 15
+
+   10 if_stmt: IF LPAREN • condition RPAREN LBRACE statements RBRACE
+   11        | IF LPAREN • condition RPAREN LBRACE statements RBRACE ELSE LBRACE statements RBRACE
+
+    LPAREN  shift, and go to state 25
+    MINUS   shift, and go to state 26
+    NOT     shift, and go to state 27
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    condition   go to state 30
+    expression  go to state 31
+
+
+State 16
+
+   12 while_stmt: WHILE LPAREN • condition RPAREN LBRACE statements RBRACE
+
+    LPAREN  shift, and go to state 25
+    MINUS   shift, and go to state 26
+    NOT     shift, and go to state 27
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    condition   go to state 32
+    expression  go to state 31
+
+
+State 17
+
+   13 command: MUDAR LPAREN • color RPAREN
+
+    VERDE     shift, and go to state 33
+    AMARELO   shift, and go to state 34
+    VERMELHO  shift, and go to state 35
+
+    color  go to state 36
+
+
+State 18
+
+   14 command: LER LPAREN • sensor RPAREN ARROW IDENT
+
+    HORARIO  shift, and go to state 37
+    DURACAO  shift, and go to state 38
+    FLUXO    shift, and go to state 39
+
+    sensor  go to state 40
+
+
+State 19
+
+   15 command: ESPERAR LPAREN • expression RPAREN
+
+    LPAREN  shift, and go to state 41
+    MINUS   shift, and go to state 26
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    expression  go to state 42
+
+
+State 20
+
+    9 assignment: IDENT ASSIGN • expression
+
+    LPAREN  shift, and go to state 41
+    MINUS   shift, and go to state 26
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    expression  go to state 43
+
+
+State 21
+
+    0 $accept: program $end •
+
+    $default  accept
+
+
+State 22
+
+    3 statements: statements statement •
+
+    $default  reduce using rule 3 (statements)
+
+
+State 23
+
+    4 statement: assignment SEMI •
+
+    $default  reduce using rule 4 (statement)
+
+
+State 24
+
+    5 statement: command SEMI •
+
+    $default  reduce using rule 5 (statement)
+
+
+State 25
+
+   31 condition: LPAREN • condition RPAREN
+   39 expression: LPAREN • expression RPAREN
+
+    LPAREN  shift, and go to state 25
+    MINUS   shift, and go to state 26
+    NOT     shift, and go to state 27
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    condition   go to state 44
+    expression  go to state 45
+
+
+State 26
+
+   38 expression: MINUS • expression
+
+    LPAREN  shift, and go to state 41
+    MINUS   shift, and go to state 26
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    expression  go to state 46
+
+
+State 27
+
+   30 condition: NOT • condition
+
+    LPAREN  shift, and go to state 25
+    MINUS   shift, and go to state 26
+    NOT     shift, and go to state 27
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    condition   go to state 47
+    expression  go to state 31
+
+
+State 28
+
+   32 expression: NUMBER •
+
+    $default  reduce using rule 32 (expression)
+
+
+State 29
+
+   33 expression: IDENT •
+
+    $default  reduce using rule 33 (expression)
+
+
+State 30
+
+   10 if_stmt: IF LPAREN condition • RPAREN LBRACE statements RBRACE
+   11        | IF LPAREN condition • RPAREN LBRACE statements RBRACE ELSE LBRACE statements RBRACE
+   28 condition: condition • AND condition
+   29          | condition • OR condition
+
+    RPAREN  shift, and go to state 48
+    AND     shift, and go to state 49
+    OR      shift, and go to state 50
+
+
+State 31
+
+   22 condition: expression • LT expression
+   23          | expression • GT expression
+   24          | expression • LTE expression
+   25          | expression • GTE expression
+   26          | expression • EQ expression
+   27          | expression • NEQ expression
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+
+    PLUS   shift, and go to state 51
+    MINUS  shift, and go to state 52
+    STAR   shift, and go to state 53
+    SLASH  shift, and go to state 54
+    EQ     shift, and go to state 55
+    NEQ    shift, and go to state 56
+    GT     shift, and go to state 57
+    LT     shift, and go to state 58
+    GTE    shift, and go to state 59
+    LTE    shift, and go to state 60
+
+
+State 32
+
+   12 while_stmt: WHILE LPAREN condition • RPAREN LBRACE statements RBRACE
+   28 condition: condition • AND condition
+   29          | condition • OR condition
+
+    RPAREN  shift, and go to state 61
+    AND     shift, and go to state 49
+    OR      shift, and go to state 50
+
+
+State 33
+
+   16 color: VERDE •
+
+    $default  reduce using rule 16 (color)
+
+
+State 34
+
+   17 color: AMARELO •
+
+    $default  reduce using rule 17 (color)
+
+
+State 35
+
+   18 color: VERMELHO •
+
+    $default  reduce using rule 18 (color)
+
+
+State 36
+
+   13 command: MUDAR LPAREN color • RPAREN
+
+    RPAREN  shift, and go to state 62
+
+
+State 37
+
+   19 sensor: HORARIO •
+
+    $default  reduce using rule 19 (sensor)
+
+
+State 38
+
+   20 sensor: DURACAO •
+
+    $default  reduce using rule 20 (sensor)
+
+
+State 39
+
+   21 sensor: FLUXO •
+
+    $default  reduce using rule 21 (sensor)
+
+
+State 40
+
+   14 command: LER LPAREN sensor • RPAREN ARROW IDENT
+
+    RPAREN  shift, and go to state 63
+
+
+State 41
+
+   39 expression: LPAREN • expression RPAREN
+
+    LPAREN  shift, and go to state 41
+    MINUS   shift, and go to state 26
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    expression  go to state 64
+
+
+State 42
+
+   15 command: ESPERAR LPAREN expression • RPAREN
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+
+    RPAREN  shift, and go to state 65
+    PLUS    shift, and go to state 51
+    MINUS   shift, and go to state 52
+    STAR    shift, and go to state 53
+    SLASH   shift, and go to state 54
+
+
+State 43
+
+    9 assignment: IDENT ASSIGN expression •
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+
+    PLUS   shift, and go to state 51
+    MINUS  shift, and go to state 52
+    STAR   shift, and go to state 53
+    SLASH  shift, and go to state 54
+
+    $default  reduce using rule 9 (assignment)
+
+
+State 44
+
+   28 condition: condition • AND condition
+   29          | condition • OR condition
+   31          | LPAREN condition • RPAREN
+
+    RPAREN  shift, and go to state 66
+    AND     shift, and go to state 49
+    OR      shift, and go to state 50
+
+
+State 45
+
+   22 condition: expression • LT expression
+   23          | expression • GT expression
+   24          | expression • LTE expression
+   25          | expression • GTE expression
+   26          | expression • EQ expression
+   27          | expression • NEQ expression
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+   39           | LPAREN expression • RPAREN
+
+    RPAREN  shift, and go to state 67
+    PLUS    shift, and go to state 51
+    MINUS   shift, and go to state 52
+    STAR    shift, and go to state 53
+    SLASH   shift, and go to state 54
+    EQ      shift, and go to state 55
+    NEQ     shift, and go to state 56
+    GT      shift, and go to state 57
+    LT      shift, and go to state 58
+    GTE     shift, and go to state 59
+    LTE     shift, and go to state 60
+
+
+State 46
+
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+   38           | MINUS expression •
+
+    $default  reduce using rule 38 (expression)
+
+
+State 47
+
+   28 condition: condition • AND condition
+   29          | condition • OR condition
+   30          | NOT condition •
+
+    AND  shift, and go to state 49
+    OR   shift, and go to state 50
+
+    AND       [reduce using rule 30 (condition)]
+    OR        [reduce using rule 30 (condition)]
+    $default  reduce using rule 30 (condition)
+
+
+State 48
+
+   10 if_stmt: IF LPAREN condition RPAREN • LBRACE statements RBRACE
+   11        | IF LPAREN condition RPAREN • LBRACE statements RBRACE ELSE LBRACE statements RBRACE
+
+    LBRACE  shift, and go to state 68
+
+
+State 49
+
+   28 condition: condition AND • condition
+
+    LPAREN  shift, and go to state 25
+    MINUS   shift, and go to state 26
+    NOT     shift, and go to state 27
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    condition   go to state 69
+    expression  go to state 31
+
+
+State 50
+
+   29 condition: condition OR • condition
+
+    LPAREN  shift, and go to state 25
+    MINUS   shift, and go to state 26
+    NOT     shift, and go to state 27
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    condition   go to state 70
+    expression  go to state 31
+
+
+State 51
+
+   34 expression: expression PLUS • expression
+
+    LPAREN  shift, and go to state 41
+    MINUS   shift, and go to state 26
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    expression  go to state 71
+
+
+State 52
+
+   35 expression: expression MINUS • expression
+
+    LPAREN  shift, and go to state 41
+    MINUS   shift, and go to state 26
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    expression  go to state 72
+
+
+State 53
+
+   36 expression: expression STAR • expression
+
+    LPAREN  shift, and go to state 41
+    MINUS   shift, and go to state 26
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    expression  go to state 73
+
+
+State 54
+
+   37 expression: expression SLASH • expression
+
+    LPAREN  shift, and go to state 41
+    MINUS   shift, and go to state 26
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    expression  go to state 74
+
+
+State 55
+
+   26 condition: expression EQ • expression
+
+    LPAREN  shift, and go to state 41
+    MINUS   shift, and go to state 26
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    expression  go to state 75
+
+
+State 56
+
+   27 condition: expression NEQ • expression
+
+    LPAREN  shift, and go to state 41
+    MINUS   shift, and go to state 26
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    expression  go to state 76
+
+
+State 57
+
+   23 condition: expression GT • expression
+
+    LPAREN  shift, and go to state 41
+    MINUS   shift, and go to state 26
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    expression  go to state 77
+
+
+State 58
+
+   22 condition: expression LT • expression
+
+    LPAREN  shift, and go to state 41
+    MINUS   shift, and go to state 26
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    expression  go to state 78
+
+
+State 59
+
+   25 condition: expression GTE • expression
+
+    LPAREN  shift, and go to state 41
+    MINUS   shift, and go to state 26
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    expression  go to state 79
+
+
+State 60
+
+   24 condition: expression LTE • expression
+
+    LPAREN  shift, and go to state 41
+    MINUS   shift, and go to state 26
+    NUMBER  shift, and go to state 28
+    IDENT   shift, and go to state 29
+
+    expression  go to state 80
+
+
+State 61
+
+   12 while_stmt: WHILE LPAREN condition RPAREN • LBRACE statements RBRACE
+
+    LBRACE  shift, and go to state 81
+
+
+State 62
+
+   13 command: MUDAR LPAREN color RPAREN •
+
+    $default  reduce using rule 13 (command)
+
+
+State 63
+
+   14 command: LER LPAREN sensor RPAREN • ARROW IDENT
+
+    ARROW  shift, and go to state 82
+
+
+State 64
+
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+   39           | LPAREN expression • RPAREN
+
+    RPAREN  shift, and go to state 67
+    PLUS    shift, and go to state 51
+    MINUS   shift, and go to state 52
+    STAR    shift, and go to state 53
+    SLASH   shift, and go to state 54
+
+
+State 65
+
+   15 command: ESPERAR LPAREN expression RPAREN •
+
+    $default  reduce using rule 15 (command)
+
+
+State 66
+
+   31 condition: LPAREN condition RPAREN •
+
+    $default  reduce using rule 31 (condition)
+
+
+State 67
+
+   39 expression: LPAREN expression RPAREN •
+
+    $default  reduce using rule 39 (expression)
+
+
+State 68
+
+   10 if_stmt: IF LPAREN condition RPAREN LBRACE • statements RBRACE
+   11        | IF LPAREN condition RPAREN LBRACE • statements RBRACE ELSE LBRACE statements RBRACE
+
+    IF       shift, and go to state 1
+    WHILE    shift, and go to state 2
+    MUDAR    shift, and go to state 3
+    LER      shift, and go to state 4
+    ESPERAR  shift, and go to state 5
+    SEMI     shift, and go to state 6
+    IDENT    shift, and go to state 7
+
+    statements  go to state 83
+    statement   go to state 10
+    assignment  go to state 11
+    if_stmt     go to state 12
+    while_stmt  go to state 13
+    command     go to state 14
+
+
+State 69
+
+   28 condition: condition • AND condition
+   28          | condition AND condition •
+   29          | condition • OR condition
+
+    $default  reduce using rule 28 (condition)
+
+
+State 70
+
+   28 condition: condition • AND condition
+   29          | condition • OR condition
+   29          | condition OR condition •
+
+    AND  shift, and go to state 49
+
+    $default  reduce using rule 29 (condition)
+
+
+State 71
+
+   34 expression: expression • PLUS expression
+   34           | expression PLUS expression •
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+
+    STAR   shift, and go to state 53
+    SLASH  shift, and go to state 54
+
+    $default  reduce using rule 34 (expression)
+
+
+State 72
+
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   35           | expression MINUS expression •
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+
+    STAR   shift, and go to state 53
+    SLASH  shift, and go to state 54
+
+    $default  reduce using rule 35 (expression)
+
+
+State 73
+
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   36           | expression STAR expression •
+   37           | expression • SLASH expression
+
+    $default  reduce using rule 36 (expression)
+
+
+State 74
+
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+   37           | expression SLASH expression •
+
+    $default  reduce using rule 37 (expression)
+
+
+State 75
+
+   26 condition: expression EQ expression •
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+
+    PLUS   shift, and go to state 51
+    MINUS  shift, and go to state 52
+    STAR   shift, and go to state 53
+    SLASH  shift, and go to state 54
+
+    $default  reduce using rule 26 (condition)
+
+
+State 76
+
+   27 condition: expression NEQ expression •
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+
+    PLUS   shift, and go to state 51
+    MINUS  shift, and go to state 52
+    STAR   shift, and go to state 53
+    SLASH  shift, and go to state 54
+
+    $default  reduce using rule 27 (condition)
+
+
+State 77
+
+   23 condition: expression GT expression •
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+
+    PLUS   shift, and go to state 51
+    MINUS  shift, and go to state 52
+    STAR   shift, and go to state 53
+    SLASH  shift, and go to state 54
+
+    $default  reduce using rule 23 (condition)
+
+
+State 78
+
+   22 condition: expression LT expression •
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+
+    PLUS   shift, and go to state 51
+    MINUS  shift, and go to state 52
+    STAR   shift, and go to state 53
+    SLASH  shift, and go to state 54
+
+    $default  reduce using rule 22 (condition)
+
+
+State 79
+
+   25 condition: expression GTE expression •
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+
+    PLUS   shift, and go to state 51
+    MINUS  shift, and go to state 52
+    STAR   shift, and go to state 53
+    SLASH  shift, and go to state 54
+
+    $default  reduce using rule 25 (condition)
+
+
+State 80
+
+   24 condition: expression LTE expression •
+   34 expression: expression • PLUS expression
+   35           | expression • MINUS expression
+   36           | expression • STAR expression
+   37           | expression • SLASH expression
+
+    PLUS   shift, and go to state 51
+    MINUS  shift, and go to state 52
+    STAR   shift, and go to state 53
+    SLASH  shift, and go to state 54
+
+    $default  reduce using rule 24 (condition)
+
+
+State 81
+
+   12 while_stmt: WHILE LPAREN condition RPAREN LBRACE • statements RBRACE
+
+    IF       shift, and go to state 1
+    WHILE    shift, and go to state 2
+    MUDAR    shift, and go to state 3
+    LER      shift, and go to state 4
+    ESPERAR  shift, and go to state 5
+    SEMI     shift, and go to state 6
+    IDENT    shift, and go to state 7
+
+    statements  go to state 84
+    statement   go to state 10
+    assignment  go to state 11
+    if_stmt     go to state 12
+    while_stmt  go to state 13
+    command     go to state 14
+
+
+State 82
+
+   14 command: LER LPAREN sensor RPAREN ARROW • IDENT
+
+    IDENT  shift, and go to state 85
+
+
+State 83
+
+    3 statements: statements • statement
+   10 if_stmt: IF LPAREN condition RPAREN LBRACE statements • RBRACE
+   11        | IF LPAREN condition RPAREN LBRACE statements • RBRACE ELSE LBRACE statements RBRACE
+
+    IF       shift, and go to state 1
+    WHILE    shift, and go to state 2
+    MUDAR    shift, and go to state 3
+    LER      shift, and go to state 4
+    ESPERAR  shift, and go to state 5
+    RBRACE   shift, and go to state 86
+    SEMI     shift, and go to state 6
+    IDENT    shift, and go to state 7
+
+    statement   go to state 22
+    assignment  go to state 11
+    if_stmt     go to state 12
+    while_stmt  go to state 13
+    command     go to state 14
+
+
+State 84
+
+    3 statements: statements • statement
+   12 while_stmt: WHILE LPAREN condition RPAREN LBRACE statements • RBRACE
+
+    IF       shift, and go to state 1
+    WHILE    shift, and go to state 2
+    MUDAR    shift, and go to state 3
+    LER      shift, and go to state 4
+    ESPERAR  shift, and go to state 5
+    RBRACE   shift, and go to state 87
+    SEMI     shift, and go to state 6
+    IDENT    shift, and go to state 7
+
+    statement   go to state 22
+    assignment  go to state 11
+    if_stmt     go to state 12
+    while_stmt  go to state 13
+    command     go to state 14
+
+
+State 85
+
+   14 command: LER LPAREN sensor RPAREN ARROW IDENT •
+
+    $default  reduce using rule 14 (command)
+
+
+State 86
+
+   10 if_stmt: IF LPAREN condition RPAREN LBRACE statements RBRACE •
+   11        | IF LPAREN condition RPAREN LBRACE statements RBRACE • ELSE LBRACE statements RBRACE
+
+    ELSE  shift, and go to state 88
+
+    $default  reduce using rule 10 (if_stmt)
+
+
+State 87
+
+   12 while_stmt: WHILE LPAREN condition RPAREN LBRACE statements RBRACE •
+
+    $default  reduce using rule 12 (while_stmt)
+
+
+State 88
+
+   11 if_stmt: IF LPAREN condition RPAREN LBRACE statements RBRACE ELSE • LBRACE statements RBRACE
+
+    LBRACE  shift, and go to state 89
+
+
+State 89
+
+   11 if_stmt: IF LPAREN condition RPAREN LBRACE statements RBRACE ELSE LBRACE • statements RBRACE
+
+    IF       shift, and go to state 1
+    WHILE    shift, and go to state 2
+    MUDAR    shift, and go to state 3
+    LER      shift, and go to state 4
+    ESPERAR  shift, and go to state 5
+    SEMI     shift, and go to state 6
+    IDENT    shift, and go to state 7
+
+    statements  go to state 90
+    statement   go to state 10
+    assignment  go to state 11
+    if_stmt     go to state 12
+    while_stmt  go to state 13
+    command     go to state 14
+
+
+State 90
+
+    3 statements: statements • statement
+   11 if_stmt: IF LPAREN condition RPAREN LBRACE statements RBRACE ELSE LBRACE statements • RBRACE
+
+    IF       shift, and go to state 1
+    WHILE    shift, and go to state 2
+    MUDAR    shift, and go to state 3
+    LER      shift, and go to state 4
+    ESPERAR  shift, and go to state 5
+    RBRACE   shift, and go to state 91
+    SEMI     shift, and go to state 6
+    IDENT    shift, and go to state 7
+
+    statement   go to state 22
+    assignment  go to state 11
+    if_stmt     go to state 12
+    while_stmt  go to state 13
+    command     go to state 14
+
+
+State 91
+
+   11 if_stmt: IF LPAREN condition RPAREN LBRACE statements RBRACE ELSE LBRACE statements RBRACE •
+
+    $default  reduce using rule 11 (if_stmt)
