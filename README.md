@@ -85,31 +85,15 @@ while (condição) {
     // comandos
 }
 ```
-Atribuição
+Exemplo
 ```
-tempo = 30;
-contador = contador + 1;
-Exemplo de Programa
-cpp
-ler(horario) -> h;
+mudar(verde)
+esperar(20)
+mudar(amarelo)
+esperar(5)
+mudar(vermelho)
+fim
 
-if (h >= 6 && h < 20) {
-    // Dia: das 06h até 19h59
-    mudar(verde);
-    esperar(25);
-    mudar(amarelo);
-    esperar(4);
-    mudar(vermelho);
-    esperar(18);
-} else {
-    // Noite: das 20h até 05h59
-    mudar(verde);
-    esperar(25);
-    mudar(amarelo);
-    esperar(4);
-    mudar(vermelho);
-    esperar(14);
-}
 ```
 Implementação
 Arquivos do Projeto
