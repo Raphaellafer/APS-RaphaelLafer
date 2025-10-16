@@ -94,7 +94,7 @@ static void executar_comando(const char *cmd, const char *param, int valor) {
 %token INVALID
 
 %type <str> color sensor
-%type <num> expression condition
+%type <num> expression term logic_or logic_and rel_condition condition
 
 %left OR
 %left AND
@@ -124,7 +124,8 @@ statement:
     | if_stmt
     | while_stmt
     | block
-    | SEMI { /* linha vazia */ }
+    | SEMI
+    | NEWLINE
     ;
 
 assignment:
@@ -180,26 +181,42 @@ sensor:
     ;
 
 condition:
+    logic_or
+    ;
+
+logic_or:
+    logic_and
+    | logic_or OR logic_and
+    ;
+
+logic_and:
+    rel_condition
+    | logic_and AND rel_condition
+    ;
+
+rel_condition:
     expression LT expression { $$ = ($1 < $3); }
     | expression GT expression { $$ = ($1 > $3); }
     | expression LTE expression { $$ = ($1 <= $3); }
     | expression GTE expression { $$ = ($1 >= $3); }
     | expression EQ expression { $$ = ($1 == $3); }
     | expression NEQ expression { $$ = ($1 != $3); }
-    | condition AND condition { $$ = ($1 && $3); }
-    | condition OR condition { $$ = ($1 || $3); }
-    | NOT condition { $$ = (!$2); }
+    | NOT rel_condition { $$ = !$2; }
     | LPAREN condition RPAREN { $$ = $2; }
     ;
 
 expression:
+    term
+    | expression PLUS term { $$ = $1 + $3; }
+    | expression MINUS term { $$ = $1 - $3; }
+    | expression STAR term { $$ = $1 * $3; }
+    | expression SLASH term { $$ = $3 != 0 ? $1 / $3 : 0; }
+    ;
+
+term:
     NUMBER { $$ = $1; }
     | IDENT { $$ = get_var($1); free($1); }
-    | expression PLUS expression { $$ = $1 + $3; }
-    | expression MINUS expression { $$ = $1 - $3; }
-    | expression STAR expression { $$ = $1 * $3; }
-    | expression SLASH expression { $$ = $3 != 0 ? $1 / $3 : 0; }
-    | MINUS expression %prec UMINUS { $$ = -$2; }
+    | MINUS term %prec UMINUS { $$ = -$2; }
     | LPAREN expression RPAREN { $$ = $2; }
     ;
 

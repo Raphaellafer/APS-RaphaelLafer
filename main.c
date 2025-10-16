@@ -22,7 +22,7 @@ void mostrar_ajuda() {
     printf("fim - encerra\n");
     printf("executar - programa multi-linha\n");
     printf("ajuda - mostra ajuda\n");
-
+    printf("=============================\n");
 }
 
 void mostrar_cor_atual() {
@@ -90,10 +90,15 @@ void carregar_arquivo(const char *nome_arquivo) {
     
     yyin = arquivo;
     yylineno = 1;
-    yyparse();
+    int resultado = yyparse();
     
     fclose(arquivo);
-    printf("Programa finalizado.\n\n");
+    
+    if (resultado == 0) {
+        printf("Programa executado com sucesso!\n\n");
+    } else {
+        printf("Programa finalizado com erros.\n\n");
+    }
 }
 
 int main() {
@@ -139,6 +144,7 @@ int main() {
             continue;
         }
         
+
         char linha[300];
         strcpy(linha, entrada);
         if (linha[strlen(linha)-1] != ';' && linha[strlen(linha)-1] != '}') {
@@ -151,7 +157,7 @@ int main() {
             yylineno = 1;
             
             int resultado = yyparse();
-
+            
             yyrestart(NULL);
             
             fclose(temp);
