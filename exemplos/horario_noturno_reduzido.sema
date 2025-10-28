@@ -1,0 +1,22 @@
+// Exemplo: À noite (hora < 6 ou > 22), tempos reduzidos
+// Teste: make; ./semaforos; carregar exemplos/horario_noturno_reduzido.sema
+
+ler(horario) -> h;
+
+if (h < 6 || h > 22) {
+    mudar(verde);
+    esperar(5);
+    mudar(amarelo);
+    esperar(2);
+    mudar(vermelho);
+    esperar(5);
+} else {
+    mudar(verde);
+    esperar(15);
+    mudar(amarelo);
+    esperar(3);
+    mudar(vermelho);
+    esperar(12);
+}
+
+

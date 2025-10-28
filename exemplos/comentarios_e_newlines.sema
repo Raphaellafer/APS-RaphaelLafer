@@ -1,0 +1,17 @@
+// Exemplo: Comentários e quebras de linha como terminadores
+// Teste: make; ./semaforos; carregar exemplos/comentarios_e_newlines.sema
+
+// linhas em branco e fim de linha devem funcionar
+mudar(verde)
+
+esperar(3)
+
+mudar(amarelo)
+
+esperar(1)
+
+mudar(vermelho)
+
+esperar(2)
+
+

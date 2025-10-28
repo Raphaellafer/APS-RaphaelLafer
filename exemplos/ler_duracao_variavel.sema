@@ -1,0 +1,14 @@
+// Exemplo: Usa sensor 'duracao' (simulado) para ajustar tempo seguinte
+// Teste: make; ./semaforos; carregar exemplos/ler_duracao_variavel.sema
+
+ler(duracao) -> d;
+tempo = d + 5;
+
+mudar(verde);
+esperar(tempo);
+mudar(amarelo);
+esperar(2);
+mudar(vermelho);
+esperar(tempo / 2);
+
+

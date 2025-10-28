@@ -1,0 +1,19 @@
+// Exemplo: Se fluxo alto (>= 30), prioriza verde
+// Teste: make; ./semaforos; carregar exemplos/fluxo_alto_prioriza_verde.sema
+
+ler(fluxo) -> f;
+
+if (f >= 30) {
+    mudar(verde);
+    esperar(20);
+} else {
+    mudar(verde);
+    esperar(10);
+}
+
+mudar(amarelo);
+esperar(2);
+mudar(vermelho);
+esperar(10);
+
+

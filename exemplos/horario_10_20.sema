@@ -1,0 +1,27 @@
+//    make
+//    ./semaforos
+//    [Semaforo: VERDE] > carregar exemplos/horario_10_20.sema
+
+// define durações
+duracaoVerde = 30;
+duracaoAmarelo = 2;
+duracaoVermelho = 20;
+
+// lê o horário inicial
+ler(horario) -> h;
+
+while (h >= 10 && h <= 20) {
+    mudar(verde);
+    esperar(duracaoVerde);
+
+    mudar(amarelo);
+    esperar(duracaoAmarelo);
+
+    mudar(vermelho);
+    esperar(duracaoVermelho);
+
+    // atualiza o horário para manter a condição do laço correta
+    ler(horario) -> h;
+}
+
+

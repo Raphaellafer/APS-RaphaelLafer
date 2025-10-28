@@ -1,0 +1,15 @@
+// Exemplo: Expressões com parênteses e precedência
+// Teste: make; ./semaforos; carregar exemplos/uso_de_parenteses_expr.sema
+
+base = 5;
+extra = (2 + 3) * (4 - 1);
+total = base + extra; // 5 + (5 * 3) = 20
+
+mudar(verde);
+esperar(total);
+mudar(amarelo);
+esperar(2);
+mudar(vermelho);
+esperar(total / 2);
+
+

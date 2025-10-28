@@ -1,0 +1,14 @@
+// Exemplo: Ciclo básico verde -> amarelo -> vermelho
+// Teste:
+//   make
+//   ./semaforos
+//   carregar exemplos/ciclo_basico.sema
+
+mudar(verde);
+esperar(10);
+mudar(amarelo);
+esperar(2);
+mudar(vermelho);
+esperar(8);
+
+

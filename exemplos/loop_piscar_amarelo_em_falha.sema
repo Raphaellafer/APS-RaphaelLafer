@@ -1,0 +1,11 @@
+// Exemplo: Modo falha: piscar amarelo 10 vezes
+// Teste: make; ./semaforos; carregar exemplos/loop_piscar_amarelo_em_falha.sema
+
+cont = 0;
+while (cont < 10) {
+    piscar(amarelo, 1);
+    esperar(1);
+    cont = cont + 1;
+}
+
+

@@ -1,0 +1,18 @@
+// Exemplo: Ajusta tempo do verde baseado no fluxo (1..50)
+// Teste: make; ./semaforos; carregar exemplos/balanceamento_fluxo.sema
+
+ler(fluxo) -> f;
+
+tempo = 10;
+if (f > 40) { tempo = 25; }
+if (f > 30 && f <= 40) { tempo = 20; }
+if (f > 20 && f <= 30) { tempo = 15; }
+
+mudar(verde);
+esperar(tempo);
+mudar(amarelo);
+esperar(3);
+mudar(vermelho);
+esperar(tempo / 2);
+
+

@@ -1,4 +1,4 @@
-# Semaforos - Linguagem de Programação para Controle de Semáforos
+make # Semaforos - Linguagem de Programação para Controle de Semáforos
 
 ## Objetivo
 A linguagem Semaforos foi criada para simular e programar o comportamento de um semáforo virtual em uma Máquina de Estados. O propósito é oferecer uma forma de programar sinais de trânsito, utilizando conceitos de linguagens de programação como variáveis, condicionais e laços.

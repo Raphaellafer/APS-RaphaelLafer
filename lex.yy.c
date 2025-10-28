@@ -534,7 +534,8 @@ int yy_flex_debug = 0;
 #define YY_RESTORE_YY_MORE_OFFSET
 char *yytext;
 #line 1 "lexer.l"
-#line 5 "lexer.l"
+#define YY_NO_INPUT 1
+#line 6 "lexer.l"
 #include "parser.tab.h"
 #include <string.h>
 #include <stdlib.h>
@@ -550,8 +551,8 @@ static int is_fim(const char *txt) {
     }
     return strcmp(lower, "fim") == 0;
 }
-#line 554 "lex.yy.c"
 #line 555 "lex.yy.c"
+#line 556 "lex.yy.c"
 
 #define INITIAL 0
 
@@ -611,8 +612,6 @@ extern int yywrap ( void );
 #endif
 
 #ifndef YY_NO_UNPUT
-    
-    static void yyunput ( int c, char *buf_ptr  );
     
 #endif
 
@@ -768,10 +767,10 @@ YY_DECL
 		}
 
 	{
-#line 26 "lexer.l"
+#line 27 "lexer.l"
 
 
-#line 775 "lex.yy.c"
+#line 774 "lex.yy.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -840,198 +839,198 @@ do_action:	/* This label is used only to access EOF actions. */
 
 case 1:
 YY_RULE_SETUP
-#line 28 "lexer.l"
+#line 29 "lexer.l"
 return IF;
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 29 "lexer.l"
+#line 30 "lexer.l"
 return ELSE;
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 30 "lexer.l"
+#line 31 "lexer.l"
 return WHILE;
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 32 "lexer.l"
+#line 33 "lexer.l"
 return MUDAR;
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 33 "lexer.l"
+#line 34 "lexer.l"
 return PISCAR;
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 34 "lexer.l"
+#line 35 "lexer.l"
 return LER;
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 35 "lexer.l"
+#line 36 "lexer.l"
 return ESPERAR;
 	YY_BREAK
 case 8:
 YY_RULE_SETUP
-#line 37 "lexer.l"
+#line 38 "lexer.l"
 { yylval.str = strdup("verde"); return VERDE; }
 	YY_BREAK
 case 9:
 YY_RULE_SETUP
-#line 38 "lexer.l"
+#line 39 "lexer.l"
 { yylval.str = strdup("amarelo"); return AMARELO; }
 	YY_BREAK
 case 10:
 YY_RULE_SETUP
-#line 39 "lexer.l"
+#line 40 "lexer.l"
 { yylval.str = strdup("vermelho"); return VERMELHO; }
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 41 "lexer.l"
+#line 42 "lexer.l"
 { yylval.str = strdup("horario"); return HORARIO; }
 	YY_BREAK
 case 12:
 YY_RULE_SETUP
-#line 42 "lexer.l"
+#line 43 "lexer.l"
 { yylval.str = strdup("duracao"); return DURACAO; }
 	YY_BREAK
 case 13:
 YY_RULE_SETUP
-#line 43 "lexer.l"
+#line 44 "lexer.l"
 { yylval.str = strdup("fluxo"); return FLUXO; }
 	YY_BREAK
 case 14:
 YY_RULE_SETUP
-#line 45 "lexer.l"
+#line 46 "lexer.l"
 return EQ;
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 46 "lexer.l"
+#line 47 "lexer.l"
 return NEQ;
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 47 "lexer.l"
+#line 48 "lexer.l"
 return GTE;
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 48 "lexer.l"
+#line 49 "lexer.l"
 return LTE;
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 49 "lexer.l"
+#line 50 "lexer.l"
 return AND;
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 50 "lexer.l"
+#line 51 "lexer.l"
 return OR;
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 51 "lexer.l"
+#line 52 "lexer.l"
 return ARROW;
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 53 "lexer.l"
+#line 54 "lexer.l"
 return GT;
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 54 "lexer.l"
+#line 55 "lexer.l"
 return LT;
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 55 "lexer.l"
+#line 56 "lexer.l"
 return ASSIGN;
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 56 "lexer.l"
+#line 57 "lexer.l"
 return NOT;
 	YY_BREAK
 case 25:
 YY_RULE_SETUP
-#line 57 "lexer.l"
+#line 58 "lexer.l"
 return PLUS;
 	YY_BREAK
 case 26:
 YY_RULE_SETUP
-#line 58 "lexer.l"
+#line 59 "lexer.l"
 return MINUS;
 	YY_BREAK
 case 27:
 YY_RULE_SETUP
-#line 59 "lexer.l"
+#line 60 "lexer.l"
 return STAR;
 	YY_BREAK
 case 28:
 YY_RULE_SETUP
-#line 60 "lexer.l"
+#line 61 "lexer.l"
 return SLASH;
 	YY_BREAK
 case 29:
 YY_RULE_SETUP
-#line 61 "lexer.l"
+#line 62 "lexer.l"
 return COMMA;
 	YY_BREAK
 case 30:
 YY_RULE_SETUP
-#line 62 "lexer.l"
+#line 63 "lexer.l"
 return LPAREN;
 	YY_BREAK
 case 31:
 YY_RULE_SETUP
-#line 63 "lexer.l"
+#line 64 "lexer.l"
 return RPAREN;
 	YY_BREAK
 case 32:
 YY_RULE_SETUP
-#line 64 "lexer.l"
+#line 65 "lexer.l"
 return LBRACE;
 	YY_BREAK
 case 33:
 YY_RULE_SETUP
-#line 65 "lexer.l"
+#line 66 "lexer.l"
 return RBRACE;
 	YY_BREAK
 case 34:
 YY_RULE_SETUP
-#line 66 "lexer.l"
+#line 67 "lexer.l"
 return SEMI;
 	YY_BREAK
 case 35:
 YY_RULE_SETUP
-#line 68 "lexer.l"
+#line 69 "lexer.l"
 /* ignore espaços e tabs */
 	YY_BREAK
 case 36:
 /* rule 36 can match eol */
 YY_RULE_SETUP
-#line 69 "lexer.l"
+#line 70 "lexer.l"
 { return NEWLINE; }
 	YY_BREAK
 case 37:
 YY_RULE_SETUP
-#line 71 "lexer.l"
+#line 72 "lexer.l"
 /* ignore comentários */
 	YY_BREAK
 case 38:
 YY_RULE_SETUP
-#line 73 "lexer.l"
+#line 74 "lexer.l"
 { yylval.num = atoi(yytext); return NUMBER; }
 	YY_BREAK
 case 39:
 YY_RULE_SETUP
-#line 74 "lexer.l"
+#line 75 "lexer.l"
 {
     if (is_fim(yytext)) return FIM;
     yylval.str = strdup(yytext);
@@ -1040,7 +1039,7 @@ YY_RULE_SETUP
 	YY_BREAK
 case 40:
 YY_RULE_SETUP
-#line 80 "lexer.l"
+#line 81 "lexer.l"
 { 
     fprintf(stderr, "ERRO LÉXICO (linha %d): Caractere inválido '%s'\n", yylineno, yytext); 
     return INVALID; 
@@ -1048,10 +1047,10 @@ YY_RULE_SETUP
 	YY_BREAK
 case 41:
 YY_RULE_SETUP
-#line 85 "lexer.l"
+#line 86 "lexer.l"
 ECHO;
 	YY_BREAK
-#line 1055 "lex.yy.c"
+#line 1054 "lex.yy.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -1386,47 +1385,6 @@ static int yy_get_next_buffer (void)
 }
 
 #ifndef YY_NO_UNPUT
-
-    static void yyunput (int c, char * yy_bp )
-{
-	char *yy_cp;
-    
-    yy_cp = (yy_c_buf_p);
-
-	/* undo effects of setting up yytext */
-	*yy_cp = (yy_hold_char);
-
-	if ( yy_cp < YY_CURRENT_BUFFER_LVALUE->yy_ch_buf + 2 )
-		{ /* need to shift things up to make room */
-		/* +2 for EOB chars. */
-		int number_to_move = (yy_n_chars) + 2;
-		char *dest = &YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[
-					YY_CURRENT_BUFFER_LVALUE->yy_buf_size + 2];
-		char *source =
-				&YY_CURRENT_BUFFER_LVALUE->yy_ch_buf[number_to_move];
-
-		while ( source > YY_CURRENT_BUFFER_LVALUE->yy_ch_buf )
-			*--dest = *--source;
-
-		yy_cp += (int) (dest - source);
-		yy_bp += (int) (dest - source);
-		YY_CURRENT_BUFFER_LVALUE->yy_n_chars =
-			(yy_n_chars) = (int) YY_CURRENT_BUFFER_LVALUE->yy_buf_size;
-
-		if ( yy_cp < YY_CURRENT_BUFFER_LVALUE->yy_ch_buf + 2 )
-			YY_FATAL_ERROR( "flex scanner push-back overflow" );
-		}
-
-	*--yy_cp = (char) c;
-
-    if ( c == '\n' ){
-        --yylineno;
-    }
-
-	(yytext_ptr) = yy_bp;
-	(yy_hold_char) = *yy_cp;
-	(yy_c_buf_p) = yy_cp;
-}
 
 #endif
 
@@ -2068,5 +2026,5 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 85 "lexer.l"
+#line 86 "lexer.l"
 

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <stdarg.h>
 
 int yylex(void);
 void yyerror(const char *s);
@@ -11,6 +12,22 @@ extern FILE *yyin;
 
 enum Cor { VERDE_C, AMARELO_C, VERMELHO_C };
 enum Cor cor_atual;
+
+/* Sem emissor de assembly: comportamento interpretado conforme README */
+
+/* Execução condicional: pilha de flags */
+static int exec_stack[256];
+static int exec_top = 0;
+static inline int current_exec(void) {
+    return exec_top > 0 ? exec_stack[exec_top - 1] : 1;
+}
+static inline void push_exec(int flag) {
+    if (exec_top < 256) exec_stack[exec_top++] = flag ? 1 : 0;
+}
+static inline void pop_exec(void) {
+    if (exec_top > 0) exec_top--;
+}
+static int last_cond = 0;
 
 typedef struct { 
     char *name; 
@@ -45,15 +62,15 @@ static int ler_sensor(const char *s) {
         time_t t = time(NULL);
         struct tm *tm = localtime(&t);
         int hora = tm->tm_hour;
-        if (hora >= 6 && hora < 20) {
-            printf("  -> Horário atual: entre 6 e 20 hrs (%d horas)\n", hora);
-        } else {
-            printf("  -> Horário atual: após 20 hrs (%d horas)\n", hora);
-        }
+        printf("  -> Horário atual: (%d horas)\n", hora);
         return hora;
     }
     if (strcmp(s, "duracao") == 0) return 0;
-    if (strcmp(s, "fluxo") == 0) return rand() % 50 + 1;
+    if (strcmp(s, "fluxo") == 0) {
+        int v = rand() % 50 + 1;
+        printf("  -> Fluxo detectado: %d veiculos\n", v);
+        return v;
+    }
     return 0;
 }
 
@@ -95,6 +112,8 @@ static void executar_comando(const char *cmd, const char *param, int valor) {
 
 %type <str> color sensor
 %type <num> expression term logic_or logic_and rel_condition condition
+%type <num> condition_set
+%type <num> then_start then_end else_start else_end
 
 %left OR
 %left AND
@@ -109,6 +128,7 @@ static void executar_comando(const char *cmd, const char *param, int valor) {
 %%
 
 program:
+    { exec_top = 1; exec_stack[0] = 1; }
     statements { YYACCEPT; }
     | error { yyclearin; yyerrok; YYABORT; }
     ;
@@ -119,25 +139,49 @@ statements:
     ;
 
 statement:
-    assignment SEMI
-    | command SEMI
+    assignment terminator
+    | command terminator
     | if_stmt
     | while_stmt
     | block
-    | SEMI
+    | terminator
+    ;
+
+terminator:
+    SEMI
     | NEWLINE
     ;
 
 assignment:
     IDENT ASSIGN expression { 
-        set_var($1, $3); 
-        free($1); 
+        if (current_exec()) { set_var($1, $3); }
+        free($1);
     }
     ;
 
 if_stmt:
-    IF LPAREN condition RPAREN block
-    | IF LPAREN condition RPAREN block ELSE block
+    IF LPAREN condition_set RPAREN then_start block then_end
+    | IF LPAREN condition_set RPAREN then_start block then_end ELSE else_start block else_end
+    ;
+
+condition_set:
+    condition { $$ = $1; last_cond = $1; }
+    ;
+
+then_start:
+    { push_exec(current_exec() && last_cond); $$ = 0; }
+    ;
+
+then_end:
+    { pop_exec(); $$ = 0; }
+    ;
+
+else_start:
+    { push_exec(current_exec() && !last_cond); $$ = 0; }
+    ;
+
+else_end:
+    { pop_exec(); $$ = 0; }
     ;
 
 while_stmt:
@@ -150,21 +194,20 @@ block:
 
 command:
     MUDAR LPAREN color RPAREN { 
-        executar_comando("mudar", $3, 0); 
+        if (current_exec()) { executar_comando("mudar", $3, 0); }
         free($3); 
     }
     | PISCAR LPAREN color COMMA expression RPAREN { 
-        executar_comando("piscar", $3, $5); 
+        if (current_exec()) { executar_comando("piscar", $3, $5); }
         free($3); 
     }
     | LER LPAREN sensor RPAREN ARROW IDENT { 
-        int v = ler_sensor($3); 
-        set_var($6, v);
+        if (current_exec()) { int v = ler_sensor($3); set_var($6, v); }
         free($3); 
         free($6); 
     }
     | ESPERAR LPAREN expression RPAREN { 
-        executar_comando("esperar", "", $3); 
+        if (current_exec()) { executar_comando("esperar", "", $3); }
     }
     ;
 
