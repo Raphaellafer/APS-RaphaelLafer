@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include "vm.h"
 
 extern int yyparse(void);
 extern int yylineno;
@@ -10,6 +11,10 @@ extern void yyrestart(FILE *);
 
 enum Cor { VERDE_C, AMARELO_C, VERMELHO_C };
 extern enum Cor cor_atual;
+
+/* Variáveis globais para acessar do parser */
+extern VM_State *vm;
+extern int executar_durante_compilacao; /* Declarado em parser.y */
 
 void mostrar_ajuda() {
     printf("\n=== COMANDOS DISPONÍVEIS ===\n");
@@ -58,13 +63,23 @@ void executar_programa_completo() {
             break;
         }
         
-        strcat(programa, linha);
+        /* Adiciona ponto e vírgula se necessário */
+        int len = strlen(linha);
+        if (len > 0 && linha[len-1] != ';' && linha[len-1] != '}') {
+            strcat(programa, linha);
+            strcat(programa, ";");
+        } else {
+            strcat(programa, linha);
+        }
         strcat(programa, "\n");
         linhas++;
     }
     
     if (linhas > 0) {
         printf("\nExecutando programa...\n");
+        
+        /* Ativa execução durante compilação */
+        executar_durante_compilacao = 1;
         
         FILE *temp = fmemopen(programa, strlen(programa), "r");
         if (temp) {
@@ -73,6 +88,10 @@ void executar_programa_completo() {
             yyparse();
             fclose(temp);
         }
+        
+        /* Desativa execução após compilação */
+        executar_durante_compilacao = 0;
+        
         printf("Programa finalizado.\n\n");
     }
     
@@ -80,13 +99,32 @@ void executar_programa_completo() {
 }
 
 void carregar_arquivo(const char *nome_arquivo) {
+    /* Verifica se é um arquivo .asm */
+    int len = strlen(nome_arquivo);
+    if (len >= 4 && strcmp(nome_arquivo + len - 4, ".asm") == 0) {
+        printf("\nExecutando programa do arquivo '%s' na VM...\n", nome_arquivo);
+        
+        VM_State *vm_exec = vm_load_from_asm(nome_arquivo);
+        if (vm_exec) {
+            vm_execute(vm_exec);
+            vm_destroy(vm_exec);
+            printf("Programa executado com sucesso!\n\n");
+        } else {
+            printf("Erro ao carregar arquivo .asm\n\n");
+        }
+        return;
+    }
+    
     FILE *arquivo = fopen(nome_arquivo, "r");
     if (!arquivo) {
         printf("Erro: Não foi possível abrir o arquivo '%s'\n", nome_arquivo);
         return;
     }
     
-    printf("\nExecutando programa do arquivo '%s'...\n", nome_arquivo);
+    printf("\nCompilando e executando programa do arquivo '%s'...\n", nome_arquivo);
+    
+    /* Ativa execução durante compilação para arquivos .sema */
+    executar_durante_compilacao = 1;
     
     yyin = arquivo;
     yylineno = 1;
@@ -94,8 +132,29 @@ void carregar_arquivo(const char *nome_arquivo) {
     
     fclose(arquivo);
     
+    /* Desativa execução após compilação */
+    executar_durante_compilacao = 0;
+    
     if (resultado == 0) {
-        printf("Programa executado com sucesso!\n\n");
+        /* Gera arquivo .asm */
+        char asm_filename[512];
+        strncpy(asm_filename, nome_arquivo, sizeof(asm_filename) - 1);
+        asm_filename[sizeof(asm_filename) - 1] = '\0';
+        len = strlen(asm_filename);
+        if (len >= 5 && strcmp(asm_filename + len - 5, ".sema") == 0) {
+            strcpy(asm_filename + len - 5, ".asm");
+            FILE *asm_file = fopen(asm_filename, "w");
+            if (asm_file && vm) {
+                vm_print_code(vm, asm_file);
+                fclose(asm_file);
+                printf("\nArquivo .asm gerado: %s\n", asm_filename);
+                printf("Para executar na VM, use: carregar %s\n\n", asm_filename);
+            } else {
+                printf("Erro ao gerar arquivo .asm\n\n");
+            }
+        } else {
+            printf("Programa executado com sucesso!\n\n");
+        }
     } else {
         printf("Programa finalizado com erros.\n\n");
     }

@@ -18,5 +18,3 @@ if (h < 6 || h > 22) {
     mudar(vermelho);
     esperar(12);
 }
-
-

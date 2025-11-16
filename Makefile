@@ -5,7 +5,7 @@ BISON = bison
 
 all: semaforos
 
-semaforos: parser.tab.o lex.yy.o main.o
+semaforos: parser.tab.o lex.yy.o main.o vm.o
 	$(CC) -o $@ $^ -lfl
 
 parser.tab.c parser.tab.h: parser.y

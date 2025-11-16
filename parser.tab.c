@@ -74,6 +74,7 @@
 #include <string.h>
 #include <time.h>
 #include <stdarg.h>
+#include "vm.h"
 
 int yylex(void);
 void yyerror(const char *s);
@@ -83,7 +84,59 @@ extern FILE *yyin;
 enum Cor { VERDE_C, AMARELO_C, VERMELHO_C };
 enum Cor cor_atual;
 
-/* Sem emissor de assembly: comportamento interpretado conforme README */
+/* VM global para gerar assembly */
+VM_State *vm = NULL; /* Tornado não-static para acesso externo */
+static int gerar_asm = 1; /* Flag para indicar se deve gerar assembly (sempre ativo) */
+int executar_durante_compilacao = 0; /* Flag para indicar se deve executar durante compilação (tornado não-static para acesso externo) */
+
+/* Pilha de labels para condicionais aninhadas */
+#define MAX_LABEL_STACK 32
+static char *pending_else_label_stack[MAX_LABEL_STACK];
+static int pending_else_label_top = -1;
+static char *pending_end_label_stack[MAX_LABEL_STACK];
+static int pending_end_label_top = -1;
+
+static void push_else_label(char *label) {
+    if (pending_else_label_top < MAX_LABEL_STACK - 1) {
+        pending_else_label_stack[++pending_else_label_top] = label;
+    }
+}
+
+static char *pop_else_label(void) {
+    if (pending_else_label_top >= 0) {
+        return pending_else_label_stack[pending_else_label_top--];
+    }
+    return NULL;
+}
+
+static void push_end_label(char *label) {
+    if (pending_end_label_top < MAX_LABEL_STACK - 1) {
+        pending_end_label_stack[++pending_end_label_top] = label;
+    }
+}
+
+static char *pop_end_label(void) {
+    if (pending_end_label_top >= 0) {
+        return pending_end_label_stack[pending_end_label_top--];
+    }
+    return NULL;
+}
+
+/* Função para obter ou criar a VM */
+static VM_State* get_vm(void) {
+    if (!vm) {
+        vm = vm_create();
+    }
+    return vm;
+}
+
+/* Função para gerar label único */
+static int label_counter = 0;
+static char* new_label(void) {
+    char *label = malloc(16);
+    sprintf(label, "L%d", label_counter++);
+    return label;
+}
 
 /* Execução condicional: pilha de flags */
 static int exec_stack[256];
@@ -98,6 +151,7 @@ static inline void pop_exec(void) {
     if (exec_top > 0) exec_top--;
 }
 static int last_cond = 0;
+static int last_cond_value = 0; /* Valor booleano da última condição */
 
 typedef struct { 
     char *name; 
@@ -127,24 +181,62 @@ static void set_var(const char *name, int v) {
     }
 }
 
+/* Simulação de tempo: horário simulado que avança */
+static int horario_simulado = -1; /* -1 = não inicializado */
+static int minutos_simulados = 0; /* minutos acumulados desde o início */
+
+/* Estrutura para armazenar informações sobre while loops para reexecução */
+typedef struct {
+    char *var_name;      /* nome da variável na condição (se houver) */
+    int op;              /* operador (0=LT, 1=GT, 2=LTE, 3=GTE, 4=EQ, 5=NEQ) */
+    int value;           /* valor de comparação */
+} WhileCondition;
+
+static WhileCondition while_conditions[100];
+static int while_condition_count = 0;
+
 static int ler_sensor(const char *s) {
+    int valor = 0;
     if (strcmp(s, "horario") == 0) {
-        time_t t = time(NULL);
-        struct tm *tm = localtime(&t);
-        int hora = tm->tm_hour;
-        printf("  -> Horário atual: (%d horas)\n", hora);
-        return hora;
+        /* Se não foi inicializado, usa o horário real do sistema */
+        if (horario_simulado == -1) {
+            time_t t = time(NULL);
+            struct tm *tm = localtime(&t);
+            horario_simulado = tm->tm_hour;
+            minutos_simulados = tm->tm_min;
+            if (executar_durante_compilacao) {
+                printf("  -> Horário inicial: %d:%02d\n", horario_simulado, minutos_simulados);
+            }
+        } else {
+            /* Calcula o horário baseado nos minutos simulados */
+            int horas_totais = horario_simulado * 60 + minutos_simulados;
+            int hora_atual = (horas_totais / 60) % 24;
+            int minuto_atual = horas_totais % 60;
+            if (executar_durante_compilacao) {
+                printf("  -> Horário atual: %d:%02d\n", hora_atual, minuto_atual);
+            }
+            valor = hora_atual;
+        }
+        valor = horario_simulado;
+    } else if (strcmp(s, "duracao") == 0) {
+        valor = rand() % 10 + 1; /* Simula duração entre 1 e 10 segundos */
+        if (executar_durante_compilacao) {
+            printf("  -> Duração detectada: %d segundos\n", valor);
+        }
+    } else if (strcmp(s, "fluxo") == 0) {
+        valor = rand() % 50 + 1;
+        if (executar_durante_compilacao) {
+            printf("  -> Fluxo detectado: %d veiculos\n", valor);
+        }
     }
-    if (strcmp(s, "duracao") == 0) return 0;
-    if (strcmp(s, "fluxo") == 0) {
-        int v = rand() % 50 + 1;
-        printf("  -> Fluxo detectado: %d veiculos\n", v);
-        return v;
-    }
-    return 0;
+    return valor;
 }
 
 static void executar_comando(const char *cmd, const char *param, int valor) {
+    if (!executar_durante_compilacao) {
+        return; /* Não executa durante compilação */
+    }
+    
     if (strcmp(cmd, "mudar") == 0) {
         printf("  -> Mudando semáforo para %s\n", param);
         if (strcmp(param, "verde") == 0) cor_atual = VERDE_C;
@@ -156,10 +248,21 @@ static void executar_comando(const char *cmd, const char *param, int valor) {
     }
     else if (strcmp(cmd, "esperar") == 0) {
         printf("  -> Esperando %d segundos...\n", valor);
+        /* Simula a passagem do tempo: incrementa minutos baseado nos segundos */
+        /* Para simulação rápida, vamos incrementar 1 minuto a cada segundo esperado */
+        /* Ou seja, se esperar 30 segundos, avança 30 minutos no horário simulado */
+        if (horario_simulado != -1) {
+            minutos_simulados += valor; /* valor está em segundos, mas vamos tratar como minutos */
+            /* Se passar de 60 minutos, incrementa a hora */
+            if (minutos_simulados >= 60) {
+                horario_simulado = (horario_simulado + minutos_simulados / 60) % 24;
+                minutos_simulados = minutos_simulados % 60;
+            }
+        }
     }
 }
 
-#line 163 "parser.tab.c"
+#line 266 "parser.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -244,16 +347,31 @@ enum yysymbol_kind_t
   YYSYMBOL_else_start = 54,                /* else_start  */
   YYSYMBOL_else_end = 55,                  /* else_end  */
   YYSYMBOL_while_stmt = 56,                /* while_stmt  */
-  YYSYMBOL_block = 57,                     /* block  */
-  YYSYMBOL_command = 58,                   /* command  */
-  YYSYMBOL_color = 59,                     /* color  */
-  YYSYMBOL_sensor = 60,                    /* sensor  */
-  YYSYMBOL_condition = 61,                 /* condition  */
-  YYSYMBOL_logic_or = 62,                  /* logic_or  */
-  YYSYMBOL_logic_and = 63,                 /* logic_and  */
-  YYSYMBOL_rel_condition = 64,             /* rel_condition  */
-  YYSYMBOL_expression = 65,                /* expression  */
-  YYSYMBOL_term = 66                       /* term  */
+  YYSYMBOL_while_condition_start = 57,     /* while_condition_start  */
+  YYSYMBOL_while_condition_end = 58,       /* while_condition_end  */
+  YYSYMBOL_while_block_start = 59,         /* while_block_start  */
+  YYSYMBOL_while_block = 60,               /* while_block  */
+  YYSYMBOL_while_block_end = 61,           /* while_block_end  */
+  YYSYMBOL_block = 62,                     /* block  */
+  YYSYMBOL_command = 63,                   /* command  */
+  YYSYMBOL_color = 64,                     /* color  */
+  YYSYMBOL_sensor = 65,                    /* sensor  */
+  YYSYMBOL_condition = 66,                 /* condition  */
+  YYSYMBOL_logic_or = 67,                  /* logic_or  */
+  YYSYMBOL_logic_and = 68,                 /* logic_and  */
+  YYSYMBOL_rel_condition = 69,             /* rel_condition  */
+  YYSYMBOL_70_2 = 70,                      /* $@2  */
+  YYSYMBOL_71_3 = 71,                      /* $@3  */
+  YYSYMBOL_72_4 = 72,                      /* $@4  */
+  YYSYMBOL_73_5 = 73,                      /* $@5  */
+  YYSYMBOL_74_6 = 74,                      /* $@6  */
+  YYSYMBOL_75_7 = 75,                      /* $@7  */
+  YYSYMBOL_expression = 76,                /* expression  */
+  YYSYMBOL_77_8 = 77,                      /* $@8  */
+  YYSYMBOL_78_9 = 78,                      /* $@9  */
+  YYSYMBOL_79_10 = 79,                     /* $@10  */
+  YYSYMBOL_80_11 = 80,                     /* $@11  */
+  YYSYMBOL_term = 81                       /* term  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -581,16 +699,16 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  4
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   138
+#define YYLAST   159
 
 /* YYNTOKENS -- Number of terminals.  */
 #define YYNTOKENS  43
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  24
+#define YYNNTS  39
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  56
+#define YYNRULES  71
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  109
+#define YYNSTATES  126
 
 /* YYMAXUTOK -- Last valid token kind.  */
 #define YYMAXUTOK   297
@@ -643,12 +761,14 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   131,   131,   131,   133,   137,   138,   142,   143,   144,
-     145,   146,   147,   151,   152,   156,   163,   164,   168,   172,
-     176,   180,   184,   188,   192,   196,   200,   204,   209,   215,
-     216,   217,   221,   222,   223,   227,   231,   232,   236,   237,
-     241,   242,   243,   244,   245,   246,   247,   248,   252,   253,
-     254,   255,   256,   260,   261,   262,   263
+       0,   236,   236,   236,   251,   255,   256,   260,   261,   262,
+     263,   264,   265,   269,   270,   274,   288,   299,   318,   322,
+     336,   351,   370,   377,   385,   396,   413,   420,   427,   446,
+     450,   462,   474,   490,   502,   503,   504,   508,   509,   510,
+     514,   529,   533,   568,   573,   608,   608,   629,   629,   646,
+     646,   663,   663,   680,   680,   685,   685,   690,   697,   701,
+     702,   702,   710,   710,   718,   718,   726,   726,   737,   742,
+     749,   756
 };
 #endif
 
@@ -672,8 +792,11 @@ static const char *const yytname[] =
   "FIM", "NEWLINE", "INVALID", "UMINUS", "$accept", "program", "$@1",
   "statements", "statement", "terminator", "assignment", "if_stmt",
   "condition_set", "then_start", "then_end", "else_start", "else_end",
-  "while_stmt", "block", "command", "color", "sensor", "condition",
-  "logic_or", "logic_and", "rel_condition", "expression", "term", YY_NULLPTR
+  "while_stmt", "while_condition_start", "while_condition_end",
+  "while_block_start", "while_block", "while_block_end", "block",
+  "command", "color", "sensor", "condition", "logic_or", "logic_and",
+  "rel_condition", "$@2", "$@3", "$@4", "$@5", "$@6", "$@7", "expression",
+  "$@8", "$@9", "$@10", "$@11", "term", YY_NULLPTR
 };
 
 static const char *
@@ -683,31 +806,33 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 }
 #endif
 
-#define YYPACT_NINF (-49)
+#define YYPACT_NINF (-83)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
 
-#define YYTABLE_NINF (-3)
+#define YYTABLE_NINF (-67)
 
 #define yytable_value_is_error(Yyn) \
   0
 
 /* YYPACT[STATE-NUM] -- Index in YYTABLE of the portion describing
    STATE-NUM.  */
-static const yytype_int8 yypact[] =
+static const yytype_int16 yypact[] =
 {
-       2,   -49,    15,    54,   -49,     5,     6,    16,    22,    23,
-      25,    54,   -49,    43,   -49,    54,   -49,   -49,    -9,   -49,
-     -49,   -49,    -9,   -12,   -12,   124,   124,   104,    51,    47,
-      51,   -49,   -49,   -49,   -12,    51,   -12,   -49,   -49,    53,
-     -49,    34,    38,   -49,    83,   -49,    57,   -49,   -49,   -49,
-      60,    58,   -49,   -49,   -49,    66,    51,    56,   -49,   107,
-      67,    73,   -49,   -49,   -49,   -12,   -12,    51,    51,    51,
-      51,    51,    51,    51,    51,    51,    51,    68,   -49,    51,
-      55,    99,   -49,   -49,   -49,    68,    38,   -49,   -49,   -49,
-     -49,   -49,   107,   107,   107,   107,   107,   107,   -49,   103,
-     100,   -49,   -49,   -49,    89,   -49,    68,   -49,   -49
+       5,   -83,    22,    77,   -83,    20,    21,    23,    25,    33,
+      38,    77,   -83,    40,   -83,    77,   -83,   -83,     2,   -83,
+     -83,   -83,     2,     9,   -83,    93,    93,   130,    74,    12,
+      74,   -83,   -83,   -83,     9,    74,     9,   -83,   -83,    51,
+     -83,    47,    41,   -83,   106,   -83,     9,   -83,   -83,   -83,
+      79,    67,   -83,   -83,   -83,    80,    74,    31,   -83,   116,
+      92,    96,   -83,   -83,   -83,     9,     9,    61,    65,    82,
+      85,    91,    98,   113,   122,   123,   121,   132,   -83,   -83,
+      74,   114,    34,   -83,   -83,   -83,   133,    41,   -83,    74,
+      74,    74,    74,    74,    74,    74,    74,    74,    74,   -83,
+      76,   115,   -83,   116,   116,   116,   116,   116,   116,   -83,
+     -83,   -83,   -83,   134,   -83,   -83,   150,    77,   -83,   -83,
+      70,   -83,   133,   -83,   -83,   -83
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -717,31 +842,35 @@ static const yytype_int8 yydefact[] =
 {
        0,     4,     0,     0,     1,     0,     0,     0,     0,     0,
        0,     0,    13,     0,    14,     3,     5,    12,     0,     9,
-      10,    11,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     6,     7,     8,     0,     0,     0,    53,    54,     0,
-      18,    35,    36,    38,     0,    48,     0,    29,    30,    31,
-       0,     0,    32,    33,    34,     0,     0,     0,    24,    15,
-       0,     0,    55,    46,    19,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,    25,     0,
-       0,     0,    28,    47,    56,     0,    37,    39,    49,    50,
-      51,    52,    44,    45,    41,    40,    43,    42,    23,     0,
-       0,    20,    26,    27,    16,    21,     0,    22,    17
+      10,    11,     0,     0,    24,     0,     0,     0,     0,     0,
+       0,     6,     7,     8,     0,     0,     0,    68,    69,     0,
+      18,    40,    41,    43,    45,    59,     0,    34,    35,    36,
+       0,     0,    37,    38,    39,     0,     0,    60,    29,    15,
+       0,    45,    70,    57,    19,     0,     0,     0,     0,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,    25,    30,
+       0,     0,    60,    33,    58,    71,     0,    42,    44,     0,
+       0,     0,     0,     0,     0,     0,     0,     0,     0,    26,
+      60,     0,    20,    46,    48,    50,    52,    54,    56,    61,
+      63,    65,    67,     0,    31,    32,    16,     0,    28,    21,
+       0,    23,     0,    27,    22,    17
 };
 
 /* YYPGOTO[NTERM-NUM].  */
-static const yytype_int8 yypgoto[] =
+static const yytype_int16 yypgoto[] =
 {
-     -49,   -49,   -49,    84,     1,    -4,   -49,   -49,   -49,   -49,
-     -49,   -49,   -49,   -49,   -48,   -49,    95,   -49,    -7,   -49,
-      72,   -17,   -28,   -34
+     -83,   -83,   -83,   -11,   -13,    10,   -83,   -83,   -83,   -83,
+     -83,   -83,   -83,   -83,   -83,   -83,   -83,   -83,   -83,   -82,
+     -83,   129,   -83,    -8,   -83,    94,   -31,   -83,   -83,   -83,
+     -83,   -83,   -83,   -27,   -83,   -83,   -83,   -83,   -26
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-       0,     2,     3,    15,    16,    17,    18,    19,    39,    85,
-     104,   106,   108,    20,    21,    22,    50,    55,    40,    41,
-      42,    43,    44,    45
+       0,     2,     3,    15,    16,    17,    18,    19,    39,    86,
+     116,   122,   125,    20,    46,    77,   113,   118,   121,    21,
+      22,    50,    55,    40,    41,    42,    43,    67,    68,    69,
+      70,    71,    72,    44,    73,    74,    75,    76,    45
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -749,38 +878,42 @@ static const yytype_int8 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int8 yytable[] =
 {
-      57,    62,    59,     1,    34,    -2,    61,    -2,    -2,    -2,
-      -2,    -2,    35,    12,    32,     4,    31,    46,    33,    63,
-      -2,    23,    24,    36,    -2,    37,    38,    60,    81,    98,
-      31,    14,    25,    88,    89,    90,    91,   101,    26,    27,
-      -2,    28,    -2,    92,    93,    94,    95,    96,    97,    87,
-       5,    99,     6,     7,     8,     9,    10,     5,   107,     6,
-       7,     8,     9,    10,    30,    11,    58,    56,    65,    12,
-      64,    66,    11,    82,    77,    35,    12,    78,    79,    67,
-      68,    69,    70,    80,    83,    13,    11,    14,    37,    38,
-      84,   100,    13,   105,    14,    29,    67,    68,    69,    70,
-      71,    72,    73,    74,    75,    76,    67,    68,    69,    70,
-      71,    72,    73,    74,    75,    76,    84,    52,    53,    54,
-     102,    51,    67,    68,    69,    70,    67,    68,    69,    70,
-      67,    68,    69,    70,    47,    48,    49,    86,   103
+      29,    57,    31,    59,   102,    63,     1,    61,    -2,    62,
+      -2,    -2,    -2,    -2,    -2,     5,    31,     6,     7,     8,
+       9,    10,     4,    -2,    12,    34,    60,    -2,    32,    82,
+      11,    58,    33,    35,    12,    88,    23,    24,    78,    25,
+     124,    26,    14,    -2,    36,    -2,    37,    38,    83,    27,
+      13,    85,    14,   100,    28,   -62,   -64,   -66,   -62,   -64,
+     -66,    30,   103,   104,   105,   106,   107,   108,    64,   109,
+     110,   111,   112,     5,    66,     6,     7,     8,     9,    10,
+       5,    65,     6,     7,     8,     9,    10,    80,    11,   123,
+      56,    89,    12,   114,    90,    11,    79,    81,    35,    12,
+     -62,   -64,   -66,    47,    48,    49,   120,    31,    13,    84,
+      14,    37,    38,    85,    91,    13,    92,    14,    93,   -60,
+     -62,   -64,   -66,   -53,   -55,   -47,    94,   -51,   -49,   -60,
+     -62,   -64,   -66,   -53,   -55,   -47,    95,   -51,   -49,   -60,
+     -62,   -64,   -66,    52,    53,    54,    96,    98,    97,    99,
+     101,    11,   117,   115,   119,    51,     0,     0,     0,    87
 };
 
 static const yytype_int8 yycheck[] =
 {
-      28,    35,    30,     1,    16,     3,    34,     5,     6,     7,
-       8,     9,    24,    22,    18,     0,    15,    24,    22,    36,
-      18,    16,    16,    35,    22,    37,    38,    34,    56,    77,
-      29,    40,    16,    67,    68,    69,    70,    85,    16,    16,
-      38,    16,    40,    71,    72,    73,    74,    75,    76,    66,
-       3,    79,     5,     6,     7,     8,     9,     3,   106,     5,
-       6,     7,     8,     9,    21,    18,    19,    16,    34,    22,
-      17,    33,    18,    17,    17,    24,    22,    17,    20,    23,
-      24,    25,    26,    17,    17,    38,    18,    40,    37,    38,
-      17,    36,    38,     4,    40,    11,    23,    24,    25,    26,
-      27,    28,    29,    30,    31,    32,    23,    24,    25,    26,
-      27,    28,    29,    30,    31,    32,    17,    13,    14,    15,
-      17,    26,    23,    24,    25,    26,    23,    24,    25,    26,
-      23,    24,    25,    26,    10,    11,    12,    65,    38
+      11,    28,    15,    30,    86,    36,     1,    34,     3,    35,
+       5,     6,     7,     8,     9,     3,    29,     5,     6,     7,
+       8,     9,     0,    18,    22,    16,    34,    22,    18,    56,
+      18,    19,    22,    24,    22,    66,    16,    16,    46,    16,
+     122,    16,    40,    38,    35,    40,    37,    38,    17,    16,
+      38,    17,    40,    80,    16,    24,    25,    26,    24,    25,
+      26,    21,    89,    90,    91,    92,    93,    94,    17,    95,
+      96,    97,    98,     3,    33,     5,     6,     7,     8,     9,
+       3,    34,     5,     6,     7,     8,     9,    20,    18,    19,
+      16,    30,    22,    17,    29,    18,    17,    17,    24,    22,
+      24,    25,    26,    10,    11,    12,   117,   120,    38,    17,
+      40,    37,    38,    17,    32,    38,    31,    40,    27,    23,
+      24,    25,    26,    27,    28,    29,    28,    31,    32,    23,
+      24,    25,    26,    27,    28,    29,    23,    31,    32,    23,
+      24,    25,    26,    13,    14,    15,    24,    26,    25,    17,
+      36,    18,    18,    38,     4,    26,    -1,    -1,    -1,    65
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
@@ -789,15 +922,17 @@ static const yytype_int8 yystos[] =
 {
        0,     1,    44,    45,     0,     3,     5,     6,     7,     8,
        9,    18,    22,    38,    40,    46,    47,    48,    49,    50,
-      56,    57,    58,    16,    16,    16,    16,    16,    16,    46,
+      56,    62,    63,    16,    16,    16,    16,    16,    16,    46,
       21,    47,    48,    48,    16,    24,    35,    37,    38,    51,
-      61,    62,    63,    64,    65,    66,    61,    10,    11,    12,
-      59,    59,    13,    14,    15,    60,    16,    65,    19,    65,
-      61,    65,    66,    64,    17,    34,    33,    23,    24,    25,
-      26,    27,    28,    29,    30,    31,    32,    17,    17,    20,
-      17,    65,    17,    17,    17,    52,    63,    64,    66,    66,
-      66,    66,    65,    65,    65,    65,    65,    65,    57,    65,
-      36,    57,    17,    38,    53,     4,    54,    57,    55
+      66,    67,    68,    69,    76,    81,    57,    10,    11,    12,
+      64,    64,    13,    14,    15,    65,    16,    76,    19,    76,
+      66,    76,    81,    69,    17,    34,    33,    70,    71,    72,
+      73,    74,    75,    77,    78,    79,    80,    58,    66,    17,
+      20,    17,    76,    17,    17,    17,    52,    68,    69,    30,
+      29,    32,    31,    27,    28,    23,    24,    25,    26,    17,
+      76,    36,    62,    76,    76,    76,    76,    76,    76,    81,
+      81,    81,    81,    59,    17,    38,    53,    18,    60,     4,
+      46,    61,    54,    19,    62,    55
 };
 
 /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
@@ -805,10 +940,12 @@ static const yytype_int8 yyr1[] =
 {
        0,    43,    45,    44,    44,    46,    46,    47,    47,    47,
       47,    47,    47,    48,    48,    49,    50,    50,    51,    52,
-      53,    54,    55,    56,    57,    58,    58,    58,    58,    59,
-      59,    59,    60,    60,    60,    61,    62,    62,    63,    63,
-      64,    64,    64,    64,    64,    64,    64,    64,    65,    65,
-      65,    65,    65,    66,    66,    66,    66
+      53,    54,    55,    56,    57,    58,    59,    60,    61,    62,
+      63,    63,    63,    63,    64,    64,    64,    65,    65,    65,
+      66,    67,    67,    68,    68,    70,    69,    71,    69,    72,
+      69,    73,    69,    74,    69,    75,    69,    69,    69,    76,
+      77,    76,    78,    76,    79,    76,    80,    76,    81,    81,
+      81,    81
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
@@ -816,10 +953,12 @@ static const yytype_int8 yyr2[] =
 {
        0,     2,     0,     2,     1,     1,     2,     2,     2,     1,
        1,     1,     1,     1,     1,     3,     7,    11,     1,     0,
-       0,     0,     0,     5,     3,     4,     6,     6,     4,     1,
-       1,     1,     1,     1,     1,     1,     1,     3,     1,     3,
-       3,     3,     3,     3,     3,     3,     2,     3,     1,     3,
-       3,     3,     3,     1,     1,     2,     3
+       0,     0,     0,     8,     0,     1,     0,     3,     0,     3,
+       4,     6,     6,     4,     1,     1,     1,     1,     1,     1,
+       1,     1,     3,     1,     3,     0,     4,     0,     4,     0,
+       4,     0,     4,     0,     4,     0,     4,     2,     3,     1,
+       0,     4,     0,     4,     0,     4,     0,     4,     1,     1,
+       2,     3
 };
 
 
@@ -1283,232 +1422,738 @@ yyreduce:
   switch (yyn)
     {
   case 2: /* $@1: %empty  */
-#line 131 "parser.y"
-    { exec_top = 1; exec_stack[0] = 1; }
-#line 1289 "parser.tab.c"
+#line 236 "parser.y"
+    { 
+        exec_top = 1; 
+        exec_stack[0] = 1; 
+        label_counter = 0;
+        if (vm) {
+            vm_destroy(vm);
+            vm = NULL;
+        }
+        get_vm(); /* Inicializa a VM */
+    }
+#line 1437 "parser.tab.c"
     break;
 
   case 3: /* program: $@1 statements  */
-#line 132 "parser.y"
-               { YYACCEPT; }
-#line 1295 "parser.tab.c"
+#line 246 "parser.y"
+               { 
+        /* Adiciona HALT no final */
+        vm_add_instruction(vm, VM_HALT, 0, 0, NULL);
+        YYACCEPT; 
+    }
+#line 1447 "parser.tab.c"
     break;
 
   case 4: /* program: error  */
-#line 133 "parser.y"
+#line 251 "parser.y"
             { yyclearin; yyerrok; YYABORT; }
-#line 1301 "parser.tab.c"
+#line 1453 "parser.tab.c"
     break;
 
   case 15: /* assignment: IDENT ASSIGN expression  */
-#line 156 "parser.y"
+#line 274 "parser.y"
                             { 
-        if (current_exec()) { set_var((yyvsp[-2].str), (yyvsp[0].num)); }
+        if (current_exec()) { 
+            set_var((yyvsp[-2].str), (yyvsp[0].num));
+            printf("  -> Variável '%s' = %d\n", (yyvsp[-2].str), (yyvsp[0].num));
+        }
+        /* Sempre gera assembly, independente de current_exec() */
+        /* Gera assembly: expression já deixou resultado em R0 */
+        int addr = vm_alloc_var(get_vm(), (yyvsp[-2].str));
+        vm_add_instruction(get_vm(), VM_STORE, addr, 0, NULL);
         free((yyvsp[-2].str));
     }
-#line 1310 "parser.tab.c"
+#line 1469 "parser.tab.c"
     break;
 
-  case 18: /* condition_set: condition  */
-#line 168 "parser.y"
-              { (yyval.num) = (yyvsp[0].num); last_cond = (yyvsp[0].num); }
-#line 1316 "parser.tab.c"
-    break;
-
-  case 19: /* then_start: %empty  */
-#line 172 "parser.y"
-    { push_exec(current_exec() && last_cond); (yyval.num) = 0; }
-#line 1322 "parser.tab.c"
-    break;
-
-  case 20: /* then_end: %empty  */
-#line 176 "parser.y"
-    { pop_exec(); (yyval.num) = 0; }
-#line 1328 "parser.tab.c"
-    break;
-
-  case 21: /* else_start: %empty  */
-#line 180 "parser.y"
-    { push_exec(current_exec() && !last_cond); (yyval.num) = 0; }
-#line 1334 "parser.tab.c"
-    break;
-
-  case 22: /* else_end: %empty  */
-#line 184 "parser.y"
-    { pop_exec(); (yyval.num) = 0; }
-#line 1340 "parser.tab.c"
-    break;
-
-  case 25: /* command: MUDAR LPAREN color RPAREN  */
-#line 196 "parser.y"
-                              { 
-        if (current_exec()) { executar_comando("mudar", (yyvsp[-1].str), 0); }
-        free((yyvsp[-1].str)); 
+  case 16: /* if_stmt: IF LPAREN condition_set RPAREN then_start block then_end  */
+#line 289 "parser.y"
+    {
+        /* then_start ($5) gerou JZ com false_label, então geramos o label aqui */
+        char *false_label = (char*)(yyvsp[-2].num); /* $5 é o then_start que retornou o label */
+        if (false_label) {
+            vm_add_instruction(get_vm(), VM_NOP, 0, 0, false_label);
+            free(false_label);
+        }
+        push_exec(current_exec() && last_cond);
+        pop_exec();
     }
-#line 1349 "parser.tab.c"
-    break;
-
-  case 26: /* command: PISCAR LPAREN color COMMA expression RPAREN  */
-#line 200 "parser.y"
-                                                  { 
-        if (current_exec()) { executar_comando("piscar", (yyvsp[-3].str), (yyvsp[-1].num)); }
-        free((yyvsp[-3].str)); 
-    }
-#line 1358 "parser.tab.c"
-    break;
-
-  case 27: /* command: LER LPAREN sensor RPAREN ARROW IDENT  */
-#line 204 "parser.y"
-                                           { 
-        if (current_exec()) { int v = ler_sensor((yyvsp[-3].str)); set_var((yyvsp[0].str), v); }
-        free((yyvsp[-3].str)); 
-        free((yyvsp[0].str)); 
-    }
-#line 1368 "parser.tab.c"
-    break;
-
-  case 28: /* command: ESPERAR LPAREN expression RPAREN  */
-#line 209 "parser.y"
-                                       { 
-        if (current_exec()) { executar_comando("esperar", "", (yyvsp[-1].num)); }
-    }
-#line 1376 "parser.tab.c"
-    break;
-
-  case 29: /* color: VERDE  */
-#line 215 "parser.y"
-          { (yyval.str) = strdup("verde"); }
-#line 1382 "parser.tab.c"
-    break;
-
-  case 30: /* color: AMARELO  */
-#line 216 "parser.y"
-              { (yyval.str) = strdup("amarelo"); }
-#line 1388 "parser.tab.c"
-    break;
-
-  case 31: /* color: VERMELHO  */
-#line 217 "parser.y"
-               { (yyval.str) = strdup("vermelho"); }
-#line 1394 "parser.tab.c"
-    break;
-
-  case 32: /* sensor: HORARIO  */
-#line 221 "parser.y"
-            { (yyval.str) = strdup("horario"); }
-#line 1400 "parser.tab.c"
-    break;
-
-  case 33: /* sensor: DURACAO  */
-#line 222 "parser.y"
-              { (yyval.str) = strdup("duracao"); }
-#line 1406 "parser.tab.c"
-    break;
-
-  case 34: /* sensor: FLUXO  */
-#line 223 "parser.y"
-            { (yyval.str) = strdup("fluxo"); }
-#line 1412 "parser.tab.c"
-    break;
-
-  case 40: /* rel_condition: expression LT expression  */
-#line 241 "parser.y"
-                             { (yyval.num) = ((yyvsp[-2].num) < (yyvsp[0].num)); }
-#line 1418 "parser.tab.c"
-    break;
-
-  case 41: /* rel_condition: expression GT expression  */
-#line 242 "parser.y"
-                               { (yyval.num) = ((yyvsp[-2].num) > (yyvsp[0].num)); }
-#line 1424 "parser.tab.c"
-    break;
-
-  case 42: /* rel_condition: expression LTE expression  */
-#line 243 "parser.y"
-                                { (yyval.num) = ((yyvsp[-2].num) <= (yyvsp[0].num)); }
-#line 1430 "parser.tab.c"
-    break;
-
-  case 43: /* rel_condition: expression GTE expression  */
-#line 244 "parser.y"
-                                { (yyval.num) = ((yyvsp[-2].num) >= (yyvsp[0].num)); }
-#line 1436 "parser.tab.c"
-    break;
-
-  case 44: /* rel_condition: expression EQ expression  */
-#line 245 "parser.y"
-                               { (yyval.num) = ((yyvsp[-2].num) == (yyvsp[0].num)); }
-#line 1442 "parser.tab.c"
-    break;
-
-  case 45: /* rel_condition: expression NEQ expression  */
-#line 246 "parser.y"
-                                { (yyval.num) = ((yyvsp[-2].num) != (yyvsp[0].num)); }
-#line 1448 "parser.tab.c"
-    break;
-
-  case 46: /* rel_condition: NOT rel_condition  */
-#line 247 "parser.y"
-                        { (yyval.num) = !(yyvsp[0].num); }
-#line 1454 "parser.tab.c"
-    break;
-
-  case 47: /* rel_condition: LPAREN condition RPAREN  */
-#line 248 "parser.y"
-                              { (yyval.num) = (yyvsp[-1].num); }
-#line 1460 "parser.tab.c"
-    break;
-
-  case 49: /* expression: expression PLUS term  */
-#line 253 "parser.y"
-                           { (yyval.num) = (yyvsp[-2].num) + (yyvsp[0].num); }
-#line 1466 "parser.tab.c"
-    break;
-
-  case 50: /* expression: expression MINUS term  */
-#line 254 "parser.y"
-                            { (yyval.num) = (yyvsp[-2].num) - (yyvsp[0].num); }
-#line 1472 "parser.tab.c"
-    break;
-
-  case 51: /* expression: expression STAR term  */
-#line 255 "parser.y"
-                           { (yyval.num) = (yyvsp[-2].num) * (yyvsp[0].num); }
-#line 1478 "parser.tab.c"
-    break;
-
-  case 52: /* expression: expression SLASH term  */
-#line 256 "parser.y"
-                            { (yyval.num) = (yyvsp[0].num) != 0 ? (yyvsp[-2].num) / (yyvsp[0].num) : 0; }
 #line 1484 "parser.tab.c"
     break;
 
-  case 53: /* term: NUMBER  */
-#line 260 "parser.y"
-           { (yyval.num) = (yyvsp[0].num); }
-#line 1490 "parser.tab.c"
+  case 17: /* if_stmt: IF LPAREN condition_set RPAREN then_start block then_end ELSE else_start block else_end  */
+#line 300 "parser.y"
+    {
+        /* then_start ($5) gerou JZ que aponta para o label do else */
+        /* else_start ($8) já gerou o label do else */
+        /* then_end ($7) já gerou JMP para pular o else */
+        /* Precisamos gerar o label do fim (que foi usado pelo JMP do then_end) */
+        char *end_label = pop_end_label();
+        if (end_label) {
+            vm_add_instruction(get_vm(), VM_NOP, 0, 0, end_label);
+            free(end_label);
+        }
+        push_exec(current_exec() && last_cond);
+        pop_exec();
+        push_exec(current_exec() && !last_cond);
+        pop_exec();
+    }
+#line 1504 "parser.tab.c"
     break;
 
-  case 54: /* term: IDENT  */
-#line 261 "parser.y"
-            { (yyval.num) = get_var((yyvsp[0].str)); free((yyvsp[0].str)); }
-#line 1496 "parser.tab.c"
+  case 18: /* condition_set: condition  */
+#line 318 "parser.y"
+              { (yyval.num) = (yyvsp[0].num); last_cond = last_cond_value; }
+#line 1510 "parser.tab.c"
     break;
 
-  case 55: /* term: MINUS term  */
-#line 262 "parser.y"
-                              { (yyval.num) = -(yyvsp[0].num); }
-#line 1502 "parser.tab.c"
+  case 19: /* then_start: %empty  */
+#line 322 "parser.y"
+    { 
+        /* condition deixou resultado na stack (via logic_or) */
+        /* Restaura resultado da stack para R0 antes do JZ */
+        vm_add_instruction(get_vm(), VM_POP, 0, 0, NULL); /* Restaura resultado para R0 */
+        /* Cria um novo label para o JZ */
+        char *false_label = new_label();
+        push_else_label(strdup(false_label)); /* Armazena na pilha para uso no else_start */
+        vm_add_instruction(get_vm(), VM_JZ, 0, 0, false_label);
+        (yyval.num) = (int)false_label; /* Retorna o label como ponteiro */
+        push_exec(current_exec() && last_cond);
+    }
+#line 1526 "parser.tab.c"
     break;
 
-  case 56: /* term: LPAREN expression RPAREN  */
-#line 263 "parser.y"
+  case 20: /* then_end: %empty  */
+#line 336 "parser.y"
+    { 
+        pop_exec(); 
+        /* Se há um else pendente, geramos JMP aqui para pular o else */
+        /* Verificamos se há um label do else na pilha (indicando que há um else) */
+        if (pending_else_label_top >= 0) {
+            char *end_label = new_label();
+            vm_add_instruction(get_vm(), VM_JMP, 0, 0, end_label);
+            /* Armazena o label do fim em uma pilha separada */
+            push_end_label(end_label);
+        }
+        (yyval.num) = 0; 
+    }
+#line 1543 "parser.tab.c"
+    break;
+
+  case 21: /* else_start: %empty  */
+#line 351 "parser.y"
+    { 
+        /* Gera label para o início do else */
+        /* Usa o label que foi gerado pelo then_start (da pilha) */
+        char *else_label = pop_else_label();
+        if (else_label) {
+            vm_add_instruction(get_vm(), VM_NOP, 0, 0, else_label);
+            free(else_label);
+        } else {
+            /* Fallback: cria novo label se pilha estiver vazia */
+            char *new_else_label = new_label();
+            vm_add_instruction(get_vm(), VM_NOP, 0, 0, new_else_label);
+            free(new_else_label);
+        }
+        (yyval.num) = 0;
+        push_exec(current_exec() && !last_cond); 
+    }
+#line 1564 "parser.tab.c"
+    break;
+
+  case 22: /* else_end: %empty  */
+#line 370 "parser.y"
+    { 
+        pop_exec(); 
+        (yyval.num) = 0; 
+    }
+#line 1573 "parser.tab.c"
+    break;
+
+  case 23: /* while_stmt: WHILE LPAREN while_condition_start while_condition_end RPAREN while_block_start while_block while_block_end  */
+#line 378 "parser.y"
+    {
+        /* Para assembly: código de loop já foi gerado com labels e jumps */
+        (yyval.num) = 0;
+    }
+#line 1582 "parser.tab.c"
+    break;
+
+  case 24: /* while_condition_start: %empty  */
+#line 385 "parser.y"
+    {
+        /* Para assembly: cria label de início do loop */
+        char *loop_start_label = new_label();
+        vm_add_instruction(get_vm(), VM_NOP, 0, 0, loop_start_label);
+        /* Armazena o label para uso no while_block_end */
+        push_else_label(loop_start_label); /* Reutiliza a pilha de else para armazenar loop_start */
+        (yyval.num) = 0;
+    }
+#line 1595 "parser.tab.c"
+    break;
+
+  case 25: /* while_condition_end: condition  */
+#line 397 "parser.y"
+    {
+        /* Para assembly: avalia condição e pula para fim se falsa */
+        /* condition deixou resultado na stack */
+        vm_add_instruction(get_vm(), VM_POP, 0, 0, NULL); /* Restaura resultado para R0 */
+        char *loop_end_label = new_label();
+        vm_add_instruction(get_vm(), VM_JZ, 0, 0, loop_end_label); /* Se falso, sai do loop */
+        /* Armazena o label do fim para uso no while_block_end */
+        push_end_label(loop_end_label);
+        /* Para execução interpretada: armazena o valor da condição */
+        last_cond_value = ((yyvsp[0].num) != 0) ? 1 : 0;
+        push_exec(current_exec() && last_cond_value);
+        (yyval.num) = (yyvsp[0].num);
+    }
+#line 1613 "parser.tab.c"
+    break;
+
+  case 26: /* while_block_start: %empty  */
+#line 413 "parser.y"
+    {
+        /* Para execução interpretada: início do bloco */
+        (yyval.num) = 0;
+    }
+#line 1622 "parser.tab.c"
+    break;
+
+  case 27: /* while_block: LBRACE statements RBRACE  */
+#line 421 "parser.y"
+    {
+        (yyval.num) = 0;
+    }
+#line 1630 "parser.tab.c"
+    break;
+
+  case 28: /* while_block_end: %empty  */
+#line 427 "parser.y"
+    {
+        /* Para assembly: volta para o início do loop */
+        char *loop_start_label = pop_else_label(); /* Recupera o label de início */
+        if (loop_start_label) {
+            vm_add_instruction(get_vm(), VM_JMP, 0, 0, loop_start_label);
+            free(loop_start_label);
+        }
+        /* Gera label do fim do loop */
+        char *loop_end_label = pop_end_label();
+        if (loop_end_label) {
+            vm_add_instruction(get_vm(), VM_NOP, 0, 0, loop_end_label);
+            free(loop_end_label);
+        }
+        pop_exec();
+        (yyval.num) = 0;
+    }
+#line 1651 "parser.tab.c"
+    break;
+
+  case 30: /* command: MUDAR LPAREN color RPAREN  */
+#line 450 "parser.y"
+                              { 
+        if (current_exec()) { 
+            executar_comando("mudar", (yyvsp[-1].str), 0);
+        }
+        /* Sempre gera assembly, independente de current_exec() */
+        int cor = 0;
+        if (strcmp((yyvsp[-1].str), "verde") == 0) cor = 0;
+        else if (strcmp((yyvsp[-1].str), "amarelo") == 0) cor = 1;
+        else cor = 2;
+        vm_add_instruction(get_vm(), VM_MUDAR, cor, 0, NULL);
+        free((yyvsp[-1].str)); 
+    }
+#line 1668 "parser.tab.c"
+    break;
+
+  case 31: /* command: PISCAR LPAREN color COMMA expression RPAREN  */
+#line 462 "parser.y"
+                                                  { 
+        if (current_exec()) { 
+            executar_comando("piscar", (yyvsp[-3].str), (yyvsp[-1].num));
+            /* Gera assembly: expression já deixou resultado em R0 */
+            int cor = 0;
+            if (strcmp((yyvsp[-3].str), "verde") == 0) cor = 0;
+            else if (strcmp((yyvsp[-3].str), "amarelo") == 0) cor = 1;
+            else cor = 2;
+            vm_add_instruction(get_vm(), VM_PISCAR, cor, (yyvsp[-1].num), NULL);
+        }
+        free((yyvsp[-3].str)); 
+    }
+#line 1685 "parser.tab.c"
+    break;
+
+  case 32: /* command: LER LPAREN sensor RPAREN ARROW IDENT  */
+#line 474 "parser.y"
+                                           { 
+        if (current_exec()) { 
+            int v = ler_sensor((yyvsp[-3].str));
+            set_var((yyvsp[0].str), v);
+            /* Gera assembly */
+            int sensor_id = 0;
+            if (strcmp((yyvsp[-3].str), "horario") == 0) sensor_id = SENSOR_HORARIO;
+            else if (strcmp((yyvsp[-3].str), "duracao") == 0) sensor_id = SENSOR_DURACAO;
+            else if (strcmp((yyvsp[-3].str), "fluxo") == 0) sensor_id = SENSOR_FLUXO;
+            vm_add_instruction(get_vm(), VM_READ_SENSOR, sensor_id, 0, NULL);
+            int addr = vm_alloc_var(get_vm(), (yyvsp[0].str));
+            vm_add_instruction(get_vm(), VM_STORE, addr, 0, NULL);
+        }
+        free((yyvsp[-3].str)); 
+        free((yyvsp[0].str)); 
+    }
+#line 1706 "parser.tab.c"
+    break;
+
+  case 33: /* command: ESPERAR LPAREN expression RPAREN  */
+#line 490 "parser.y"
+                                       { 
+        if (current_exec()) { 
+            executar_comando("esperar", "", (yyvsp[-1].num));
+        }
+        /* Sempre gera assembly, independente de current_exec() */
+        /* Gera assembly: ESPERAR usa o valor em R0 que já foi carregado pela expression */
+        /* O valor já está em R0, então ESPERAR não precisa de argumento */
+        vm_add_instruction(get_vm(), VM_ESPERAR, 0, 0, NULL);
+    }
+#line 1720 "parser.tab.c"
+    break;
+
+  case 34: /* color: VERDE  */
+#line 502 "parser.y"
+          { (yyval.str) = strdup("verde"); }
+#line 1726 "parser.tab.c"
+    break;
+
+  case 35: /* color: AMARELO  */
+#line 503 "parser.y"
+              { (yyval.str) = strdup("amarelo"); }
+#line 1732 "parser.tab.c"
+    break;
+
+  case 36: /* color: VERMELHO  */
+#line 504 "parser.y"
+               { (yyval.str) = strdup("vermelho"); }
+#line 1738 "parser.tab.c"
+    break;
+
+  case 37: /* sensor: HORARIO  */
+#line 508 "parser.y"
+            { (yyval.str) = strdup("horario"); }
+#line 1744 "parser.tab.c"
+    break;
+
+  case 38: /* sensor: DURACAO  */
+#line 509 "parser.y"
+              { (yyval.str) = strdup("duracao"); }
+#line 1750 "parser.tab.c"
+    break;
+
+  case 39: /* sensor: FLUXO  */
+#line 510 "parser.y"
+            { (yyval.str) = strdup("fluxo"); }
+#line 1756 "parser.tab.c"
+    break;
+
+  case 40: /* condition: logic_or  */
+#line 515 "parser.y"
+    {
+        /* logic_or deixou resultado na stack (do logic_and) */
+        /* Não fazemos POP aqui, o resultado fica na stack */
+        /* O then_start fará POP antes do JZ */
+        /* Armazena o valor booleano da condição para uso em last_cond */
+        last_cond_value = ((yyvsp[0].num) != 0) ? 1 : 0;
+        /* Gera label para pular se falso */
+        char *false_label = new_label();
+        /* JZ será gerado pelo then_start, então apenas retornamos o label */
+        (yyval.num) = (int)false_label;
+    }
+#line 1772 "parser.tab.c"
+    break;
+
+  case 41: /* logic_or: logic_and  */
+#line 529 "parser.y"
+              { 
+        (yyval.num) = (yyvsp[0].num);
+        /* logic_and já deixou resultado na stack, não precisa fazer PUSH novamente */
+    }
+#line 1781 "parser.tab.c"
+    break;
+
+  case 42: /* logic_or: logic_or OR logic_and  */
+#line 533 "parser.y"
+                            { 
+        /* Para execução interpretada: calcula OR lógico corretamente */
+        /* $1 e $3 são valores semânticos (0 ou 1) */
+        /* $1 é o resultado do logic_or anterior, $3 é o resultado do logic_and */
+        int val1 = ((yyvsp[-2].num) != 0) ? 1 : 0;
+        int val3 = ((yyvsp[0].num) != 0) ? 1 : 0;
+        (yyval.num) = (val1 || val3) ? 1 : 0;
+        /* Short-circuit: se $1 é verdadeiro, não avalia $3 */
+        /* Stack: [..., $1] (salvo pelo logic_or anterior) */
+        /* R0: $3 (resultado do logic_and atual, que também fez PUSH) */
+        /* Stack agora: [..., $1, $3] onde $3 está no topo */
+        /* Precisamos: se $1 é 1, resultado é 1; senão resultado é $3 */
+        /* Salva $3 antes de verificar $1 */
+        vm_add_instruction(get_vm(), VM_POP, 0, 0, NULL); /* Remove $3 do topo, deixa em R0 */
+        int temp_addr = vm_alloc_var(get_vm(), "__temp_or");
+        vm_add_instruction(get_vm(), VM_STORE, temp_addr, 0, NULL); /* Salva $3 em memória */
+        /* Restaura $1 da stack para R0 */
+        vm_add_instruction(get_vm(), VM_POP, 0, 0, NULL); /* Remove $1, deixa em R0 */
+        char *true_label = new_label();
+        char *end_label = new_label();
+        vm_add_instruction(get_vm(), VM_JNZ, 0, 0, true_label); /* Se $1 é 1, resultado é 1 */
+        /* $1 é 0, então resultado é $3 - restaura $3 da memória */
+        vm_add_instruction(get_vm(), VM_LOADM, temp_addr, 0, NULL); /* Restaura $3 */
+        vm_add_instruction(get_vm(), VM_JMP, 0, 0, end_label);
+        vm_add_instruction(get_vm(), VM_NOP, 0, 0, true_label);
+        vm_add_instruction(get_vm(), VM_LOAD, 1, 0, NULL); /* Resultado é 1 */
+        vm_add_instruction(get_vm(), VM_NOP, 0, 0, end_label);
+        /* Resultado final está em R0, salva na stack para possível OR seguinte */
+        vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL);
+        free(true_label);
+        free(end_label);
+    }
+#line 1818 "parser.tab.c"
+    break;
+
+  case 43: /* logic_and: rel_condition  */
+#line 568 "parser.y"
+                  { 
+        (yyval.num) = (yyvsp[0].num);
+        /* Resultado está em R0, salva na stack para possível uso em AND seguinte */
+        vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL);
+    }
+#line 1828 "parser.tab.c"
+    break;
+
+  case 44: /* logic_and: logic_and AND rel_condition  */
+#line 573 "parser.y"
+                                  { 
+        /* Para execução interpretada: calcula AND lógico corretamente */
+        /* $1 e $3 são valores semânticos (0 ou 1) */
+        int val1 = ((yyvsp[-2].num) != 0) ? 1 : 0;
+        int val3 = ((yyvsp[0].num) != 0) ? 1 : 0;
+        (yyval.num) = (val1 && val3) ? 1 : 0;
+        /* Short-circuit AND: se $1 é falso, resultado é falso, senão é $3 */
+        /* Stack: [..., $1] (salvo pela regra anterior) */
+        /* R0: $3 (resultado do rel_condition, que também fez PUSH) */
+        /* Stack agora: [..., $1, $3] onde $3 está no topo */
+        /* Precisamos: se $1 é 0, resultado é 0; senão resultado é $3 */
+        char *false_label = new_label();
+        char *end_label = new_label();
+        /* Salva $3 em memória temporária antes de verificar $1 */
+        vm_add_instruction(get_vm(), VM_POP, 0, 0, NULL); /* Remove $3 do topo, deixa em R0 */
+        int temp_addr = vm_alloc_var(get_vm(), "__temp_and");
+        vm_add_instruction(get_vm(), VM_STORE, temp_addr, 0, NULL); /* Salva $3 em memória */
+        /* Restaura $1 da stack para R0 */
+        vm_add_instruction(get_vm(), VM_POP, 0, 0, NULL); /* Remove $1, deixa em R0 */
+        vm_add_instruction(get_vm(), VM_JZ, 0, 0, false_label); /* Se $1 é 0, pula para false */
+        /* $1 não é 0, então resultado é $3 - restaura $3 da memória */
+        vm_add_instruction(get_vm(), VM_LOADM, temp_addr, 0, NULL); /* Restaura $3 */
+        vm_add_instruction(get_vm(), VM_JMP, 0, 0, end_label);
+        vm_add_instruction(get_vm(), VM_NOP, 0, 0, false_label);
+        /* $1 é 0, então resultado é 0 */
+        vm_add_instruction(get_vm(), VM_LOAD, 0, 0, NULL); /* Resultado é 0 */
+        vm_add_instruction(get_vm(), VM_NOP, 0, 0, end_label);
+        /* Resultado final está em R0, salva na stack para possível AND seguinte */
+        vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL);
+        free(false_label);
+        free(end_label);
+    }
+#line 1865 "parser.tab.c"
+    break;
+
+  case 45: /* $@2: %empty  */
+#line 608 "parser.y"
+               { vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL); }
+#line 1871 "parser.tab.c"
+    break;
+
+  case 46: /* rel_condition: expression $@2 LT expression  */
+#line 608 "parser.y"
+                                                                                    { 
+        /* Para execução interpretada: $1 é expression1, $4 é expression2 */
+        int expr1 = (yyvsp[-3].num);
+        int expr2 = (yyvsp[0].num);
+        (yyval.num) = (expr1 < expr2) ? 1 : 0;
+        /* expression1 foi salvo na stack pela mid-rule action */
+        /* expression2 está em R0 */
+        vm_add_instruction(get_vm(), VM_CMP, 0, 0, NULL);
+        /* CMP deixa (stack - R0) em R0, ou seja (expression1 - expression2) */
+        /* Se R0 < 0, então expression1 < expression2 */
+        char *true_label = new_label();
+        char *end_label = new_label();
+        vm_add_instruction(get_vm(), VM_JLT, 0, 0, true_label);
+        vm_add_instruction(get_vm(), VM_LOAD, 0, 0, NULL); /* Falso: carrega 0 */
+        vm_add_instruction(get_vm(), VM_JMP, 0, 0, end_label);
+        vm_add_instruction(get_vm(), VM_NOP, 0, 0, true_label);
+        vm_add_instruction(get_vm(), VM_LOAD, 1, 0, NULL); /* Verdadeiro: carrega 1 */
+        vm_add_instruction(get_vm(), VM_NOP, 0, 0, end_label);
+        free(true_label);
+        free(end_label);
+    }
+#line 1897 "parser.tab.c"
+    break;
+
+  case 47: /* $@3: %empty  */
+#line 629 "parser.y"
+                 { vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL); }
+#line 1903 "parser.tab.c"
+    break;
+
+  case 48: /* rel_condition: expression $@3 GT expression  */
+#line 629 "parser.y"
+                                                                                      { 
+        /* Para execução interpretada: $1 é expression1, $4 é expression2 */
+        int expr1 = (yyvsp[-3].num);
+        int expr2 = (yyvsp[0].num);
+        (yyval.num) = (expr1 > expr2) ? 1 : 0;
+        vm_add_instruction(get_vm(), VM_CMP, 0, 0, NULL);
+        char *true_label = new_label();
+        char *end_label = new_label();
+        vm_add_instruction(get_vm(), VM_JGT, 0, 0, true_label);
+        vm_add_instruction(get_vm(), VM_LOAD, 0, 0, NULL);
+        vm_add_instruction(get_vm(), VM_JMP, 0, 0, end_label);
+        vm_add_instruction(get_vm(), VM_NOP, 0, 0, true_label);
+        vm_add_instruction(get_vm(), VM_LOAD, 1, 0, NULL);
+        vm_add_instruction(get_vm(), VM_NOP, 0, 0, end_label);
+        free(true_label);
+        free(end_label);
+    }
+#line 1925 "parser.tab.c"
+    break;
+
+  case 49: /* $@4: %empty  */
+#line 646 "parser.y"
+                 { vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL); }
+#line 1931 "parser.tab.c"
+    break;
+
+  case 50: /* rel_condition: expression $@4 LTE expression  */
+#line 646 "parser.y"
+                                                                                       { 
+        /* Para execução interpretada: $1 é expression1, $4 é expression2 */
+        int expr1 = (yyvsp[-3].num);
+        int expr2 = (yyvsp[0].num);
+        (yyval.num) = (expr1 <= expr2) ? 1 : 0;
+        vm_add_instruction(get_vm(), VM_CMP, 0, 0, NULL);
+        char *true_label = new_label();
+        char *end_label = new_label();
+        vm_add_instruction(get_vm(), VM_JLE, 0, 0, true_label);
+        vm_add_instruction(get_vm(), VM_LOAD, 0, 0, NULL);
+        vm_add_instruction(get_vm(), VM_JMP, 0, 0, end_label);
+        vm_add_instruction(get_vm(), VM_NOP, 0, 0, true_label);
+        vm_add_instruction(get_vm(), VM_LOAD, 1, 0, NULL);
+        vm_add_instruction(get_vm(), VM_NOP, 0, 0, end_label);
+        free(true_label);
+        free(end_label);
+    }
+#line 1953 "parser.tab.c"
+    break;
+
+  case 51: /* $@5: %empty  */
+#line 663 "parser.y"
+                 { vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL); }
+#line 1959 "parser.tab.c"
+    break;
+
+  case 52: /* rel_condition: expression $@5 GTE expression  */
+#line 663 "parser.y"
+                                                                                       { 
+        /* Para execução interpretada: $1 é expression1, $4 é expression2 */
+        int expr1 = (yyvsp[-3].num);
+        int expr2 = (yyvsp[0].num);
+        (yyval.num) = (expr1 >= expr2) ? 1 : 0;
+        vm_add_instruction(get_vm(), VM_CMP, 0, 0, NULL);
+        char *true_label = new_label();
+        char *end_label = new_label();
+        vm_add_instruction(get_vm(), VM_JGE, 0, 0, true_label);
+        vm_add_instruction(get_vm(), VM_LOAD, 0, 0, NULL);
+        vm_add_instruction(get_vm(), VM_JMP, 0, 0, end_label);
+        vm_add_instruction(get_vm(), VM_NOP, 0, 0, true_label);
+        vm_add_instruction(get_vm(), VM_LOAD, 1, 0, NULL);
+        vm_add_instruction(get_vm(), VM_NOP, 0, 0, end_label);
+        free(true_label);
+        free(end_label);
+    }
+#line 1981 "parser.tab.c"
+    break;
+
+  case 53: /* $@6: %empty  */
+#line 680 "parser.y"
+                 { vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL); }
+#line 1987 "parser.tab.c"
+    break;
+
+  case 54: /* rel_condition: expression $@6 EQ expression  */
+#line 680 "parser.y"
+                                                                                      { 
+        (yyval.num) = ((yyvsp[-3].num) == (yyvsp[0].num));
+        vm_add_instruction(get_vm(), VM_EQ, 0, 0, NULL);
+        /* EQ já deixa 1 ou 0 em R0 */
+    }
+#line 1997 "parser.tab.c"
+    break;
+
+  case 55: /* $@7: %empty  */
+#line 685 "parser.y"
+                 { vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL); }
+#line 2003 "parser.tab.c"
+    break;
+
+  case 56: /* rel_condition: expression $@7 NEQ expression  */
+#line 685 "parser.y"
+                                                                                       { 
+        (yyval.num) = ((yyvsp[-3].num) != (yyvsp[0].num));
+        vm_add_instruction(get_vm(), VM_NE, 0, 0, NULL);
+        /* NE já deixa 1 ou 0 em R0 */
+    }
+#line 2013 "parser.tab.c"
+    break;
+
+  case 57: /* rel_condition: NOT rel_condition  */
+#line 690 "parser.y"
+                        { 
+        (yyval.num) = !(yyvsp[0].num);
+        /* Inverte o resultado em R0: se 1 vira 0, se 0 vira 1 */
+        vm_add_instruction(get_vm(), VM_LOAD, 1, 0, NULL);
+        vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL);
+        vm_add_instruction(get_vm(), VM_SUB, 0, 0, NULL);
+    }
+#line 2025 "parser.tab.c"
+    break;
+
+  case 58: /* rel_condition: LPAREN condition RPAREN  */
+#line 697 "parser.y"
+                              { (yyval.num) = (yyvsp[-1].num); }
+#line 2031 "parser.tab.c"
+    break;
+
+  case 59: /* expression: term  */
+#line 701 "parser.y"
+         { (yyval.num) = (yyvsp[0].num); }
+#line 2037 "parser.tab.c"
+    break;
+
+  case 60: /* $@8: %empty  */
+#line 702 "parser.y"
+                 { vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL); }
+#line 2043 "parser.tab.c"
+    break;
+
+  case 61: /* expression: expression $@8 PLUS term  */
+#line 702 "parser.y"
+                                                                                  { 
+        /* Para execução interpretada: $1 é expression, $4 é term */
+        (yyval.num) = (yyvsp[-3].num) + (yyvsp[0].num);
+        /* Gera assembly: soma */
+        /* expression foi salvo na stack pela mid-rule action */
+        /* term está em R0 */
+        vm_add_instruction(get_vm(), VM_ADD, 0, 0, NULL);
+    }
+#line 2056 "parser.tab.c"
+    break;
+
+  case 62: /* $@9: %empty  */
+#line 710 "parser.y"
+                 { vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL); }
+#line 2062 "parser.tab.c"
+    break;
+
+  case 63: /* expression: expression $@9 MINUS term  */
+#line 710 "parser.y"
+                                                                                   { 
+        /* Para execução interpretada: $1 é expression, $4 é term */
+        (yyval.num) = (yyvsp[-3].num) - (yyvsp[0].num);
+        /* Gera assembly: subtrai */
+        /* expression foi salvo na stack pela mid-rule action */
+        /* term está em R0 */
+        vm_add_instruction(get_vm(), VM_SUB, 0, 0, NULL);
+    }
+#line 2075 "parser.tab.c"
+    break;
+
+  case 64: /* $@10: %empty  */
+#line 718 "parser.y"
+                 { vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL); }
+#line 2081 "parser.tab.c"
+    break;
+
+  case 65: /* expression: expression $@10 STAR term  */
+#line 718 "parser.y"
+                                                                                  { 
+        /* Para execução interpretada: $1 é expression, $4 é term */
+        (yyval.num) = (yyvsp[-3].num) * (yyvsp[0].num);
+        /* Gera assembly: multiplica */
+        /* expression foi salvo na stack pela mid-rule action */
+        /* term está em R0 */
+        vm_add_instruction(get_vm(), VM_MUL, 0, 0, NULL);
+    }
+#line 2094 "parser.tab.c"
+    break;
+
+  case 66: /* $@11: %empty  */
+#line 726 "parser.y"
+                 { vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL); }
+#line 2100 "parser.tab.c"
+    break;
+
+  case 67: /* expression: expression $@11 SLASH term  */
+#line 726 "parser.y"
+                                                                                   { 
+        /* Para execução interpretada: $1 é expression, $4 é term */
+        (yyval.num) = ((yyvsp[0].num) != 0) ? ((yyvsp[-3].num) / (yyvsp[0].num)) : 0;
+        /* Gera assembly: divide */
+        /* expression foi salvo na stack pela mid-rule action */
+        /* term está em R0 */
+        vm_add_instruction(get_vm(), VM_DIV, 0, 0, NULL);
+    }
+#line 2113 "parser.tab.c"
+    break;
+
+  case 68: /* term: NUMBER  */
+#line 737 "parser.y"
+           { 
+        (yyval.num) = (yyvsp[0].num);
+        /* Gera assembly: carrega número em R0 */
+        vm_add_instruction(get_vm(), VM_LOAD, (yyvsp[0].num), 0, NULL);
+    }
+#line 2123 "parser.tab.c"
+    break;
+
+  case 69: /* term: IDENT  */
+#line 742 "parser.y"
+            { 
+        (yyval.num) = get_var((yyvsp[0].str));
+        /* Gera assembly: carrega variável da memória */
+        int addr = vm_alloc_var(get_vm(), (yyvsp[0].str));
+        vm_add_instruction(get_vm(), VM_LOADM, addr, 0, NULL);
+        free((yyvsp[0].str)); 
+    }
+#line 2135 "parser.tab.c"
+    break;
+
+  case 70: /* term: MINUS term  */
+#line 749 "parser.y"
+                              { 
+        (yyval.num) = -(yyvsp[0].num);
+        /* Gera assembly: nega o valor em R0 */
+        vm_add_instruction(get_vm(), VM_LOAD, 0, 0, NULL);
+        vm_add_instruction(get_vm(), VM_PUSH, 0, 0, NULL);
+        vm_add_instruction(get_vm(), VM_SUB, 0, 0, NULL);
+    }
+#line 2147 "parser.tab.c"
+    break;
+
+  case 71: /* term: LPAREN expression RPAREN  */
+#line 756 "parser.y"
                                { (yyval.num) = (yyvsp[-1].num); }
-#line 1508 "parser.tab.c"
+#line 2153 "parser.tab.c"
     break;
 
 
-#line 1512 "parser.tab.c"
+#line 2157 "parser.tab.c"
 
       default: break;
     }
@@ -1701,7 +2346,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 266 "parser.y"
+#line 759 "parser.y"
 
 
 void yyerror(const char *s) {
