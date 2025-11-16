@@ -126,4 +126,6 @@ Modo Programa Completo
 Carregar Arquivo
 ```
 [Semaforo: VERDE] > carregar programa.sema
+[Semaforo: VERDE] > carregar programa.asm - > para rodar com o asm
+
 ```
